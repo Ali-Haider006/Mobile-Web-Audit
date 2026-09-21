@@ -1,50 +1,23 @@
 # Mobile Web Audit
 
-Core Web Vitals tracking for the sites we run SEO and paid ads on: import a
-sitemap, pick the pages to track, score them on mobile through the PageSpeed
-Insights API, keep the history, and open a task whenever a page drops below the
-target score.
+Core Web Vitals tracking for the sites we run SEO and paid ads on. Import a
+site's sitemap, pick the pages worth tracking, score them on **mobile** through
+Google's PageSpeed Insights API, keep every score as history you can graph, and
+open a task automatically whenever a page drops below the target score.
 
-**The tool lives in [`web-audit/`](web-audit/) — see [web-audit/README.md](web-audit/README.md)
-for install and usage.** It is plain PHP 8 + MySQL, no framework or Composer.
+Plain PHP 8 + MySQL — no framework, no Composer, no CDN.
 
----
+**The tool lives in [`web-audit/`](web-audit/). See
+[web-audit/README.md](web-audit/README.md) for install, usage and cron setup.**
 
-## Next.js scaffold
-
-The rest of this repository is the original `create-next-app` scaffold, kept as-is.
-
-## Getting Started
-
-First, run the development server:
+## Quick start
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+mysql -u root -p -e "CREATE DATABASE web_audit CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+mysql -u root -p web_audit < web-audit/db/schema.sql
+
+cp web-audit/.env.example web-audit/.env     # set DB_* and PSI_API_KEY
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Point the web server's document root at `web-audit/public`. Nothing outside
+`public/` should be web-reachable.
