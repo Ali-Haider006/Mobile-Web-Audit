@@ -1,0 +1,3 @@
+# Local config - never commit credentials or API keys
+.env
+!.env.example

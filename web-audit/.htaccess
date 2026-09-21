@@ -1,0 +1,13 @@
+# The document root should be public/. This is a belt-and-braces guard for
+# servers that are pointed at the project root by mistake.
+Options -Indexes
+
+<FilesMatch "^\.env|\.sql$|\.md$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

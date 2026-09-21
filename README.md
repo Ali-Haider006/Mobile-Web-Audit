@@ -1,4 +1,18 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Mobile Web Audit
+
+Core Web Vitals tracking for the sites we run SEO and paid ads on: import a
+sitemap, pick the pages to track, score them on mobile through the PageSpeed
+Insights API, keep the history, and open a task whenever a page drops below the
+target score.
+
+**The tool lives in [`web-audit/`](web-audit/) — see [web-audit/README.md](web-audit/README.md)
+for install and usage.** It is plain PHP 8 + MySQL, no framework or Composer.
+
+---
+
+## Next.js scaffold
+
+The rest of this repository is the original `create-next-app` scaffold, kept as-is.
 
 ## Getting Started
 
