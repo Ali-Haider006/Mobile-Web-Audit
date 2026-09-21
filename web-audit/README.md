@@ -47,11 +47,25 @@ Anything outside `public/` must not be web-reachable. Set `APP_PASSWORD` in
 `.env` to put a shared-password login in front of the UI (leave it empty if the
 tool already sits behind a VPN or basic auth).
 
-Local check without a web server:
+### Run it locally
+
+PHP's built-in server is enough for local use - no Apache or nginx needed:
 
 ```bash
+cd web-audit
+php bin/doctor.php          # checks PHP, .env, MySQL and the schema
 php -S 127.0.0.1:8000 -t public
 ```
+
+Then open <http://127.0.0.1:8000>. Leave that terminal running; `Ctrl+C` stops it.
+
+`bin/doctor.php` prints a fix for anything it finds wrong. Add `--api` to spend
+one API request proving the PageSpeed key works end to end.
+
+On XAMPP/MAMP/Laragon you can instead put the project in `htdocs`/`www` and
+point a vhost at `web-audit/public`, but the built-in server is simpler and the
+`php` binary is already installed (`C:\xampp\php\php.exe`, or
+`/Applications/MAMP/bin/php/php8.x/bin/php`).
 
 ## Using it
 
@@ -85,6 +99,7 @@ The browser is only one way to drain the queue. For unattended runs:
 | `bin/scan.php --all [--import] [--run]` | Queue every active site; `--import` re-reads sitemaps first, `--run` also drains the queue |
 | `bin/scan.php --site=3` | Queue one site |
 | `bin/worker.php --max=20` | Audit up to 20 queued URLs (`--run=ID` for one scan, `--sleep=S` between calls) |
+| `bin/doctor.php [--api]` | Pre-flight check: PHP, extensions, `.env`, MySQL, schema, API key |
 | `bin/install.php` | Load `db/schema.sql` |
 | `bin/selftest.php` | Offline checks of the URL, sitemap and PageSpeed parsing — no DB, no network |
 

@@ -19,5 +19,13 @@ mysql -u root -p web_audit < web-audit/db/schema.sql
 cp web-audit/.env.example web-audit/.env     # set DB_* and PSI_API_KEY
 ```
 
-Point the web server's document root at `web-audit/public`. Nothing outside
-`public/` should be web-reachable.
+Then run it:
+
+```bash
+cd web-audit
+php bin/doctor.php                    # confirms PHP, MySQL, schema and API key
+php -S 127.0.0.1:8000 -t public       # open http://127.0.0.1:8000
+```
+
+For a real deployment, point the web server's document root at
+`web-audit/public`. Nothing outside `public/` should be web-reachable.
