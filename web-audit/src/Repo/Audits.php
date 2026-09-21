@@ -60,11 +60,18 @@ final class Audits
         return Database::one('SELECT * FROM audits WHERE id = ?', [$id]);
     }
 
-    /** @return array<string,mixed>|null */
+    /**
+     * Latest SUCCESSFUL audit - what the metric tiles and the site table show.
+     * A failed re-audit must not blank out the last known-good numbers; the
+     * failure is still visible in the audit log (recentForPage).
+     *
+     * @return array<string,mixed>|null
+     */
     public static function latestForPage(int $pageId): ?array
     {
         return Database::one(
-            'SELECT * FROM audits WHERE page_id = ? ORDER BY fetched_at DESC, id DESC LIMIT 1',
+            'SELECT * FROM audits WHERE page_id = ? AND status = \'ok\'
+             ORDER BY fetched_at DESC, id DESC LIMIT 1',
             [$pageId]
         );
     }

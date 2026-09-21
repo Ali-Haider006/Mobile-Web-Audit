@@ -103,7 +103,10 @@ final class Pages
         $order = match ($filters['sort'] ?? 'score') {
             'url'     => 'p.path ASC',
             'recent'  => 'p.last_audit_at IS NULL, p.last_audit_at DESC',
-            'change'  => '(p.last_score - p.previous_score) ASC, p.last_score ASC',
+            // Both columns are TINYINT UNSIGNED: MySQL raises "BIGINT UNSIGNED
+            // value is out of range" on a negative result, which is exactly
+            // the case this sort exists to surface. Cast before subtracting.
+            'change'  => '(CAST(p.last_score AS SIGNED) - CAST(p.previous_score AS SIGNED)) ASC, p.last_score ASC',
             default   => 'p.last_score IS NULL, p.last_score ASC, p.path ASC',
         };
 

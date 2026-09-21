@@ -43,6 +43,11 @@ check('keeps query', Helpers::normalizeUrl('https://example.com/a?b=1'), 'https:
 check('drops default port', Helpers::normalizeUrl('https://example.com:443/a'), 'https://example.com/a');
 check('rejects mailto', Helpers::normalizeUrl('mailto:hi@example.com'), null);
 check('rejects empty', Helpers::normalizeUrl('   '), null);
+check('rejects prose', Helpers::normalizeUrl('not a url'), null);
+check('rejects bare word', Helpers::normalizeUrl('homepage'), null);
+check('encodes spaces in path', Helpers::normalizeUrl('https://example.com/my page.html'), 'https://example.com/my%20page.html');
+check('accepts ipv4 host', Helpers::normalizeUrl('http://192.168.1.10/status'), 'http://192.168.1.10/status');
+check('accepts hyphenated host', Helpers::normalizeUrl('https://my-client.co.uk'), 'https://my-client.co.uk/');
 
 echo "Exclusion patterns\n";
 check('wildcard middle', Helpers::matchesPattern('https://x.com/tag/seo', '*/tag/*'), true);

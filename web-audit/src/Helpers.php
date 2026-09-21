@@ -37,6 +37,16 @@ final class Helpers
             return null;
         }
         $host = strtolower($parts['host']);
+        // parse_url is lenient - it will hand back a "host" containing spaces
+        // or other junk. A real hostname is dotted labels, or an IPv4 address.
+        $isIpv4 = (bool) filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4);
+        $isName = (bool) preg_match(
+            '~^[a-z0-9]([a-z0-9\-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9\-]*[a-z0-9])?)+$~',
+            $host
+        );
+        if (!$isIpv4 && !$isName) {
+            return null;
+        }
         $port = '';
         if (!empty($parts['port']) && !(($scheme === 'http' && (int) $parts['port'] === 80) || ($scheme === 'https' && (int) $parts['port'] === 443))) {
             $port = ':' . (int) $parts['port'];
@@ -49,6 +59,11 @@ final class Helpers
             $path = rtrim($path, '/');
         }
         $query = isset($parts['query']) && $parts['query'] !== '' ? '?' . $parts['query'] : '';
+
+        // Sitemaps do carry unencoded spaces ("/my page.html"); encode rather
+        // than discard, so the URL stays fetchable.
+        $path  = str_replace(' ', '%20', $path);
+        $query = str_replace(' ', '%20', $query);
 
         return $scheme . '://' . $host . $port . $path . $query;
     }

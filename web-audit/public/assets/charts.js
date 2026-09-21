@@ -140,6 +140,15 @@
                 });
                 tl.textContent = options.thresholdLabel;
                 svg.appendChild(tl);
+                /* The data line can pass right through this label - back it
+                   with the surface colour so it stays readable. */
+                var textWidth = tl.getComputedTextLength ? tl.getComputedTextLength() : 0;
+                if (textWidth) {
+                    svg.insertBefore(el('rect', {
+                        x: width - PAD.right - textWidth - 3, y: ty - 16,
+                        width: textWidth + 6, height: 14, fill: surface
+                    }), tl);
+                }
             }
         }
 

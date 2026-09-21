@@ -102,6 +102,7 @@ The browser is only one way to drain the queue. For unattended runs:
 | `bin/doctor.php [--api]` | Pre-flight check: PHP, extensions, `.env`, MySQL, schema, API key |
 | `bin/install.php` | Load `db/schema.sql` |
 | `bin/selftest.php` | Offline checks of the URL, sitemap and PageSpeed parsing — no DB, no network |
+| `bin/integration-test.php` | End-to-end check against your database — imports, tracking, queue, tasks, every UI query. Safe on a live database: it only touches sites on reserved `.invalid` domains it creates and removes, and spends no API calls |
 
 ## How scoring and tasks work
 
