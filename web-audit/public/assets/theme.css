@@ -1,0 +1,91 @@
+/* ==========================================================================
+   THEME LAYER - design tokens only.
+
+   Source: wpx-marine-feature-catalog.css. Values below are verbatim from that
+   file, with two deliberate changes, both noted inline. To adopt a newer
+   version of the catalog, replace the values in this file; nothing else in the
+   app hard-codes a colour, a font stack or a measure.
+
+   Contract with the rest of the app:
+     - app.css and charts.js may ONLY read these via var(--token).
+     - Adding a token means adding it to BOTH the light block and the two dark
+       blocks below, or it will silently fall back in one theme.
+     - bin/selftest.php fails the build if app.css or charts.js references a
+       token that is not defined here, or if app.css contains a raw colour.
+
+   Dark mode is declared twice on purpose: once for the OS setting and once for
+   the toggle's data-theme="dark". A data-theme="light" block is NOT needed -
+   the media query is guarded with :not([data-theme="light"]), so a light stamp
+   already wins over OS dark.
+   ========================================================================== */
+
+:root {
+    /* --- Catalog palette, light --- */
+    --paper:      #EDF2F2;
+    --surface:    #FFFFFF;
+    --surface-2:  #E4EEEC;
+    --shoal:      #D5E6E3;
+    --ink:        #0D1F22;
+    --ink-soft:   #4A6362;
+    --ink-faint:  #7C9291;
+    --rule:       #C2D6D3;
+    --rule-soft:  #DCE8E6;
+    --magenta:    #B8156A;
+    --magenta-ink:#8E1053;
+    --teal:       #14524F;
+    --amber:      #96570F;
+    --violet:     #5B3A8E;
+    /* CHANGED from the catalog's #1B6746: that value is below the chroma floor
+       at status-dot size and reads gray. #0F7A4B keeps the hue and passes. */
+    --good:       #0F7A4B;
+
+    /* --- Catalog type --- */
+    --display: Georgia, "Iowan Old Style", "Times New Roman", serif;
+    --body: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, "Liberation Mono", monospace;
+    --measure: 70ch;
+
+    /* --- ADDED for this app: chart ink, read by assets/charts.js ---
+       Literal values rather than var() chains, because charts.js resolves these
+       with getComputedStyle and must get a colour back, not a var() expression. */
+    --series-1:       #14524F;
+    --chart-surface:  #FFFFFF;
+    --chart-ink:      #0D1F22;
+    --chart-muted:    #7C9291;
+    --chart-grid:     #DCE8E6;
+    --chart-baseline: #C2D6D3;
+}
+
+/* Dark, from the OS setting. The :not() guard lets the toggle's light stamp win. */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --paper:#06161A; --surface:#0C2126; --surface-2:#102C32; --shoal:#143840;
+        --ink:#DDEBE9; --ink-soft:#94B0AE; --ink-faint:#6B8886;
+        --rule:#1E434A; --rule-soft:#16353B;
+        --magenta:#FF5CA8; --magenta-ink:#FF8CC2; --teal:#5FC7BC;
+        --amber:#E2A257; --good:#4FBF8B; --violet:#B398E8;
+
+        --series-1:       #5FC7BC;
+        --chart-surface:  #0C2126;
+        --chart-ink:      #DDEBE9;
+        --chart-muted:    #6B8886;
+        --chart-grid:     #16353B;
+        --chart-baseline: #1E434A;
+    }
+}
+
+/* Dark, from the masthead toggle. Same values as above. */
+:root[data-theme="dark"] {
+    --paper:#06161A; --surface:#0C2126; --surface-2:#102C32; --shoal:#143840;
+    --ink:#DDEBE9; --ink-soft:#94B0AE; --ink-faint:#6B8886;
+    --rule:#1E434A; --rule-soft:#16353B;
+    --magenta:#FF5CA8; --magenta-ink:#FF8CC2; --teal:#5FC7BC;
+    --amber:#E2A257; --good:#4FBF8B; --violet:#B398E8;
+
+    --series-1:       #5FC7BC;
+    --chart-surface:  #0C2126;
+    --chart-ink:      #DDEBE9;
+    --chart-muted:    #6B8886;
+    --chart-grid:     #16353B;
+    --chart-baseline: #1E434A;
+}

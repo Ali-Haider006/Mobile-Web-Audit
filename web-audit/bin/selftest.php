@@ -165,5 +165,63 @@ check('band average', Helpers::scoreBand(80), 'average');
 check('band poor', Helpers::scoreBand(25), 'poor');
 check('band none', Helpers::scoreBand(null), 'none');
 
+
+/**
+ * The stylesheet split only stays honest if something checks it, so these run
+ * with the unit tests: the theme layer owns every colour, and the component
+ * layer and charts.js may only read tokens the theme actually defines.
+ */
+echo "Stylesheet layering\n";
+
+$themeCss  = (string) file_get_contents(WVA_ROOT . '/public/assets/theme.css');
+$appCss    = (string) file_get_contents(WVA_ROOT . '/public/assets/app.css');
+$chartsJs  = (string) file_get_contents(WVA_ROOT . '/public/assets/charts.js');
+
+/** @return array<string,string> token => value, for one CSS block */
+function blockTokens(string $css, string $selector): array
+{
+    $start = strpos($css, $selector);
+    if ($start === false) {
+        return [];
+    }
+    $open  = strpos($css, '{', $start);
+    $close = strpos($css, '}', $open);
+    $body  = substr($css, $open + 1, $close - $open - 1);
+    preg_match_all('/(--[a-z0-9-]+)\s*:\s*([^;]+);/i', $body, $m, PREG_SET_ORDER);
+
+    $out = [];
+    foreach ($m as $match) {
+        $out[$match[1]] = trim($match[2]);
+    }
+    return $out;
+}
+
+$light    = blockTokens($themeCss, ':root {');
+$osDark   = blockTokens($themeCss, ':root:not([data-theme="light"]) {');
+$attrDark = blockTokens($themeCss, ':root[data-theme="dark"] {');
+
+check('theme defines light tokens', count($light) > 15, true);
+check('OS-dark block is not empty', count($osDark) > 10, true);
+// The two dark blocks are duplicates by design - if they drift, one theme path
+// silently gets stale colours.
+check('both dark blocks define the same tokens', array_keys($osDark) === array_keys($attrDark), true);
+check('both dark blocks agree on values', $osDark === $attrDark, true);
+check('no dark token is missing from light', array_diff(array_keys($osDark), array_keys($light)), []);
+
+// Component layer must not hard-code anything visual.
+$appNoComments = (string) preg_replace('~/\*.*?\*/~s', '', $appCss);
+preg_match_all('/#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(/i', $appNoComments, $literals);
+check('app.css declares no raw colours', $literals[0], []);
+
+// Every token read must exist, in both layers that read them.
+preg_match_all('/var\(\s*(--[a-z0-9-]+)/i', $appNoComments, $used);
+$undefinedInCss = array_values(array_unique(array_diff($used[1], array_keys($light))));
+check('every var() in app.css is defined', $undefinedInCss, []);
+
+preg_match_all("/token\(\s*'(--[a-z0-9-]+)'/", $chartsJs, $jsUsed);
+$undefinedInJs = array_values(array_unique(array_diff($jsUsed[1], array_keys($light))));
+check('every token() in charts.js is defined', $undefinedInJs, []);
+check('charts.js reads at least the series colour', in_array('--series-1', $jsUsed[1], true), true);
+
 echo "\n$passed passed, $failed failed\n";
 exit($failed === 0 ? 0 : 1);

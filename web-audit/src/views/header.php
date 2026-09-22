@@ -34,7 +34,8 @@ $nav    = [
     } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=2">
+<link rel="stylesheet" href="assets/theme.css?v=1">
+<link rel="stylesheet" href="assets/app.css?v=3">
 </head>
 <body>
 <header class="masthead">

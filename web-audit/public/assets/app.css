@@ -1,91 +1,13 @@
 /* ==========================================================================
-   Mobile Web Audit
-   Design system: wpx-marine-feature-catalog.css - tokens below are verbatim
-   from that file; the component layer is ported onto this app's markup.
+   COMPONENT LAYER - layout and components only.
 
-   Two additions, both documented in the README:
-     --series-*  chart roles read by assets/charts.js
-     --good      #0F7A4B in light, up from the catalog's #1B6746, which fails
-                 the chroma floor at status-dot size (reads gray)
+   No colours, fonts or measures are declared here: everything visual comes from
+   assets/theme.css via var(--token). bin/selftest.php enforces that, so the
+   design system stays swappable in one file.
    ========================================================================== */
 
 html { -webkit-text-size-adjust: 100%; }
 img, svg { max-width: 100%; height: auto; }
-
-:root {
-    --paper:      #EDF2F2;
-    --surface:    #FFFFFF;
-    --surface-2:  #E4EEEC;
-    --shoal:      #D5E6E3;
-    --ink:        #0D1F22;
-    --ink-soft:   #4A6362;
-    --ink-faint:  #7C9291;
-    --rule:       #C2D6D3;
-    --rule-soft:  #DCE8E6;
-    --magenta:    #B8156A;
-    --magenta-ink:#8E1053;
-    --teal:       #14524F;
-    --amber:      #96570F;
-    --good:       #0F7A4B;
-    --violet:     #5B3A8E;
-
-    --display: Georgia, "Iowan Old Style", "Times New Roman", serif;
-    --body: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, "Liberation Mono", monospace;
-    --measure: 70ch;
-
-    /* Chart roles - literal per theme so charts.js never resolves a var() chain */
-    --series-1:       #14524F;
-    --chart-surface:  #FFFFFF;
-    --chart-ink:      #0D1F22;
-    --chart-muted:    #7C9291;
-    --chart-grid:     #DCE8E6;
-    --chart-baseline: #C2D6D3;
-}
-
-@media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-        --paper:#06161A; --surface:#0C2126; --surface-2:#102C32; --shoal:#143840;
-        --ink:#DDEBE9; --ink-soft:#94B0AE; --ink-faint:#6B8886;
-        --rule:#1E434A; --rule-soft:#16353B;
-        --magenta:#FF5CA8; --magenta-ink:#FF8CC2; --teal:#5FC7BC; --amber:#E2A257; --good:#4FBF8B; --violet:#B398E8;
-
-        --series-1:       #5FC7BC;
-        --chart-surface:  #0C2126;
-        --chart-ink:      #DDEBE9;
-        --chart-muted:    #6B8886;
-        --chart-grid:     #16353B;
-        --chart-baseline: #1E434A;
-    }
-}
-
-:root[data-theme="dark"] {
-    --paper:#06161A; --surface:#0C2126; --surface-2:#102C32; --shoal:#143840;
-    --ink:#DDEBE9; --ink-soft:#94B0AE; --ink-faint:#6B8886;
-    --rule:#1E434A; --rule-soft:#16353B;
-    --magenta:#FF5CA8; --magenta-ink:#FF8CC2; --teal:#5FC7BC; --amber:#E2A257; --good:#4FBF8B; --violet:#B398E8;
-
-    --series-1:       #5FC7BC;
-    --chart-surface:  #0C2126;
-    --chart-ink:      #DDEBE9;
-    --chart-muted:    #6B8886;
-    --chart-grid:     #16353B;
-    --chart-baseline: #1E434A;
-}
-
-:root[data-theme="light"] {
-    --paper:#EDF2F2; --surface:#FFFFFF; --surface-2:#E4EEEC; --shoal:#D5E6E3;
-    --ink:#0D1F22; --ink-soft:#4A6362; --ink-faint:#7C9291;
-    --rule:#C2D6D3; --rule-soft:#DCE8E6;
-    --magenta:#B8156A; --magenta-ink:#8E1053; --teal:#14524F; --amber:#96570F; --good:#0F7A4B; --violet:#5B3A8E;
-
-    --series-1:       #14524F;
-    --chart-surface:  #FFFFFF;
-    --chart-ink:      #0D1F22;
-    --chart-muted:    #7C9291;
-    --chart-grid:     #DCE8E6;
-    --chart-baseline: #C2D6D3;
-}
 
 * { box-sizing: border-box; }
 
@@ -502,5 +424,4 @@ code {
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 @media print {
     #themeBtn, .masthead nav, .btn, .sticky-bar { display: none; }
-    body { background: #fff; }
 }

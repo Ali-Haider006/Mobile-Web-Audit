@@ -124,11 +124,23 @@ The target is 80 by default (Settings), and a site can override it.
 
 The UI uses the **wpx-marine-feature-catalog** design system — marine teals with
 a magenta accent, Georgia for display type, mono for labels, square corners and
-hairline rules. `public/assets/app.css` carries that file's tokens verbatim,
-with two documented additions:
+hairline rules. The CSS is in two layers, so the design is swappable in one file:
 
-- `--series-*` / `--chart-*`: the roles `assets/charts.js` reads for chart ink.
-  The data line is `--teal`, which clears 3:1 against both surfaces.
+| File | Holds | Touch it when |
+|---|---|---|
+| `public/assets/theme.css` | **Only** design tokens — every colour, font stack and measure, in a light block and two dark blocks | The design system changes |
+| `public/assets/app.css` | **Only** layout and components, all reading `var(--token)` | The UI changes |
+
+`bin/selftest.php` keeps that seam honest and fails if it erodes: `app.css` may
+contain no raw colour, every `var()` it uses and every token `charts.js` reads
+must be defined in `theme.css`, and the two dark blocks (one for the OS setting,
+one for the toggle) must stay identical.
+
+Token values are verbatim from the catalog, with two deliberate changes, both
+commented in `theme.css`:
+
+- `--series-*` / `--chart-*` are **added** — the roles `charts.js` reads for chart
+  ink. The data line is `--teal`, which clears 3:1 against both surfaces.
 - `--good` is `#0F7A4B` in light mode rather than the catalog's `#1B6746`, which
   falls below the chroma floor at status-dot size (it reads gray). Status colours
   are the catalog's own `--amber` and `--magenta` otherwise, and every status
@@ -136,7 +148,9 @@ with two documented additions:
   only signal.
 
 Light and dark both ship. The theme follows the OS by default; the toggle in the
-masthead overrides it and remembers the choice in `localStorage`.
+masthead overrides it and remembers the choice in `localStorage`. There is no
+`[data-theme="light"]` block on purpose — the dark media query is guarded with
+`:not([data-theme="light"])`, so a light stamp already wins over OS dark.
 
 ## Layout
 
@@ -144,7 +158,8 @@ masthead overrides it and remembers the choice in `localStorage`.
 bin/        CLI: install, scan, worker, selftest
 config/     defaults, overridden by .env
 db/         schema.sql
-public/     document root - one file per screen, plus assets/ and api/queue.php
+public/     document root - one file per screen, plus api/queue.php and
+            assets/ (theme.css = tokens, app.css = components, charts.js)
 src/        Config, Database, Settings, Auth, Http, Sitemap, PageSpeed,
             Importer, AuditRunner, Helpers, Repo/*, views/*
 ```
