@@ -64,11 +64,19 @@ final class Doctor
         $add($checks, 'PHP', self::OK, 'Memory limit', $memory === '' ? 'default' : $memory);
 
         // ---- Config --------------------------------------------------------
-        $envPath = WVA_ROOT . '/.env';
-        $add($checks, 'Config', is_readable($envPath) ? self::OK : self::FAIL,
-            '.env file',
-            is_readable($envPath) ? $envPath : 'not found',
-            'Copy .env.example to .env and fill in DB_* and PSI_API_KEY.');
+        $envPath   = WVA_ROOT . '/.env';
+        $localPath = WVA_ROOT . '/config/local.php';
+        $sources   = [];
+        if (is_readable($localPath)) {
+            $sources[] = 'config/local.php';
+        }
+        if (is_readable($envPath)) {
+            $sources[] = '.env';
+        }
+        $add($checks, 'Config', $sources === [] ? self::FAIL : self::OK,
+            'Settings file',
+            $sources === [] ? 'none found' : implode(' + ', $sources) . '  (app root: ' . WVA_ROOT . ')',
+            'Create config/local.php (copy config/local.example.php) or .env, and fill in the database details.');
 
         $key = trim((string) Config::get('psi_api_key', ''));
         if ($key === '') {

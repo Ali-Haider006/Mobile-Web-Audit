@@ -22,7 +22,18 @@ if (PHP_VERSION_ID < 80000) {
     exit;
 }
 
-define('WVA_ROOT', dirname(__DIR__));
+/*
+ * Two supported layouts:
+ *   public/ holds the pages and src/ sits beside it   (development, VPS)
+ *   everything in one folder                          (shared hosting, where
+ *                                                      the web root is all you get)
+ * Detect which one we are in rather than making the operator configure it.
+ */
+$wvaRoot = dirname(__DIR__);
+if (!is_dir($wvaRoot . '/src') && is_dir(__DIR__ . '/src')) {
+    $wvaRoot = __DIR__;
+}
+define('WVA_ROOT', $wvaRoot);
 require_once WVA_ROOT . '/src/bootstrap.php';
 
 use Wva\Auth;

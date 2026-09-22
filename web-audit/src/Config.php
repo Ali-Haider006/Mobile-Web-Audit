@@ -16,6 +16,23 @@ final class Config
     {
         if (self::$values === null) {
             $values = require WVA_ROOT . '/config/config.php';
+
+            /*
+             * config/local.php is the shared-hosting option: a .php file is
+             * executed, never served as text, so credentials in it cannot leak
+             * even from inside the document root. .env is still read, and wins
+             * where both set the same key.
+             */
+            $local = WVA_ROOT . '/config/local.php';
+            if (is_readable($local)) {
+                $overrides = require $local;
+                if (is_array($overrides)) {
+                    foreach ($overrides as $key => $value) {
+                        $values[strtolower((string) $key)] = $value;
+                    }
+                }
+            }
+
             foreach (self::readEnvFile(WVA_ROOT . '/.env') as $key => $value) {
                 $values[$key] = $value;
             }
