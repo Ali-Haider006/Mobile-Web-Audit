@@ -120,6 +120,24 @@ After each audit:
 
 The target is 80 by default (Settings), and a site can override it.
 
+## Look and feel
+
+The UI uses the **wpx-marine-feature-catalog** design system — marine teals with
+a magenta accent, Georgia for display type, mono for labels, square corners and
+hairline rules. `public/assets/app.css` carries that file's tokens verbatim,
+with two documented additions:
+
+- `--series-*` / `--chart-*`: the roles `assets/charts.js` reads for chart ink.
+  The data line is `--teal`, which clears 3:1 against both surfaces.
+- `--good` is `#0F7A4B` in light mode rather than the catalog's `#1B6746`, which
+  falls below the chroma floor at status-dot size (it reads gray). Status colours
+  are the catalog's own `--amber` and `--magenta` otherwise, and every status
+  mark carries its word ("Good" / "Needs work" / "Poor"), so colour is never the
+  only signal.
+
+Light and dark both ship. The theme follows the OS by default; the toggle in the
+masthead overrides it and remembers the choice in `localStorage`.
+
 ## Layout
 
 ```

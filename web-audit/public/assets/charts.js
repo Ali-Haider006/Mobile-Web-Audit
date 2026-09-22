@@ -9,6 +9,8 @@
 
     var PAD = { top: 14, right: 16, bottom: 26, left: 46 };
     var NS = 'http://www.w3.org/2000/svg';
+    /* Axis and threshold labels wear the design system's mono stack. */
+    var MONO = 'ui-monospace, "Cascadia Mono", "SF Mono", Consolas, "Liberation Mono", monospace';
 
     function token(name, fallback) {
         var value = getComputedStyle(document.documentElement).getPropertyValue(name);
@@ -58,11 +60,11 @@
         var present = series.filter(function (v) { return v !== null; });
         if (!present.length) { return; }
 
-        var color = options.color || token('--series-1', '#2a78d6');
-        var surface = token('--surface-1', '#fcfcfb');
-        var muted = token('--text-muted', '#898781');
-        var grid = token('--grid', '#e1e0d9');
-        var baseline = token('--baseline', '#c3c2b7');
+        var color = options.color || token('--series-1', '#14524F');
+        var surface = token('--chart-surface', '#FFFFFF');
+        var muted = token('--chart-muted', '#7C9291');
+        var grid = token('--chart-grid', '#DCE8E6');
+        var baseline = token('--chart-baseline', '#C2D6D3');
         var format = options.format || defaultFormat(options);
 
         var min = typeof options.min === 'number' ? options.min : 0;
@@ -105,7 +107,7 @@
             }));
             var label = el('text', {
                 x: padLeft - 8, y: yy + 3.5, 'text-anchor': 'end',
-                fill: muted, 'font-size': 11, 'font-family': 'system-ui, -apple-system, "Segoe UI", sans-serif'
+                fill: muted, 'font-size': 11, 'font-family': MONO
             });
             label.textContent = tick[1];
             svg.appendChild(label);
@@ -136,7 +138,7 @@
             if (options.thresholdLabel) {
                 var tl = el('text', {
                     x: width - PAD.right, y: ty - 5, 'text-anchor': 'end', fill: muted,
-                    'font-size': 11, 'font-family': 'system-ui, -apple-system, "Segoe UI", sans-serif'
+                    'font-size': 11, 'font-family': MONO
                 });
                 tl.textContent = options.thresholdLabel;
                 svg.appendChild(tl);
@@ -161,11 +163,15 @@
 
         /* X labels - thinned so they never collide */
         var every = Math.max(1, Math.ceil(series.length / Math.max(2, Math.floor(plotW / 70))));
+        var lastIndex = series.length - 1;
         series.forEach(function (v, i) {
-            if (i % every !== 0 && i !== series.length - 1) { return; }
+            // Always label the last point; drop a stepped label that would sit
+            // on top of it, which is how "17 Aug" and "20 Aug" collided at
+            // phone width.
+            if (i !== lastIndex && (i % every !== 0 || lastIndex - i < every)) { return; }
             var xt = el('text', {
-                x: x(i), y: height - 8, 'text-anchor': i === 0 ? 'start' : (i === series.length - 1 ? 'end' : 'middle'),
-                fill: muted, 'font-size': 11, 'font-family': 'system-ui, -apple-system, "Segoe UI", sans-serif'
+                x: x(i), y: height - 8, 'text-anchor': i === 0 ? 'start' : (i === lastIndex ? 'end' : 'middle'),
+                fill: muted, 'font-size': 11, 'font-family': MONO
             });
             xt.textContent = options.labels[i] || '';
             svg.appendChild(xt);
@@ -221,16 +227,33 @@
         });
     }
 
+    var drawn = [];
+
     window.wvaLineChart = function (options) {
         var host = typeof options.el === 'string' ? document.getElementById(options.el) : options.el;
         if (!host || !options.values || !options.values.length) { return; }
 
-        draw(host, options);
+        var render = function () { draw(host, options); };
+        drawn.push(render);
+        render();
 
         var timer = null;
         window.addEventListener('resize', function () {
             clearTimeout(timer);
-            timer = setTimeout(function () { draw(host, options); }, 150);
+            timer = setTimeout(render, 150);
         });
     };
+
+    /* Theme colours are baked into the SVG when it is drawn, so the toggle
+       (and an OS-level theme change) has to ask for a repaint. */
+    window.wvaRedrawCharts = function () {
+        drawn.forEach(function (render) { render(); });
+    };
+
+    if (window.matchMedia) {
+        var scheme = window.matchMedia('(prefers-color-scheme: dark)');
+        if (scheme.addEventListener) {
+            scheme.addEventListener('change', function () { window.wvaRedrawCharts(); });
+        }
+    }
 })();
