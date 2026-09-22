@@ -33,7 +33,7 @@ final class Database
             self::$pdo->exec("SET time_zone = '+00:00'");
         } catch (PDOException $e) {
             throw new RuntimeException(
-                'Cannot connect to MySQL. Check the DB_* values in .env. (' . $e->getMessage() . ')',
+                'Cannot connect to MySQL. Check the database settings in config/local.php or .env. (' . $e->getMessage() . ')',
                 0,
                 $e
             );

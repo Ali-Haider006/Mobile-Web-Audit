@@ -78,6 +78,12 @@ final class Doctor
             $sources === [] ? 'none found' : implode(' + ', $sources) . '  (app root: ' . WVA_ROOT . ')',
             'Create config/local.php (copy config/local.example.php) or .env, and fill in the database details.');
 
+        // Name the file the operator actually used, not the one we happen to
+        // document - "check .env" is useless advice to someone using local.php.
+        $settingsFile = is_readable($localPath) ? 'config/local.php' : '.env';
+        $isLocal      = $settingsFile === 'config/local.php';
+        $keyName      = static fn (string $env, string $local): string => $isLocal ? $local : $env;
+
         $key = trim((string) Config::get('psi_api_key', ''));
         if ($key === '') {
             $add($checks, 'Config', self::WARN, 'PageSpeed API key', 'not set',
@@ -91,10 +97,11 @@ final class Doctor
         if (Auth::enabled()) {
             $add($checks, 'Config', self::OK, 'Login gate', 'enabled');
         } else {
-            $add($checks, 'Config', $public ? self::FAIL : self::WARN, 'Login gate', 'no APP_PASSWORD set',
+            $setting = $keyName('APP_PASSWORD', "'app_password'");
+            $add($checks, 'Config', $public ? self::FAIL : self::WARN, 'Login gate', 'no password set',
                 $public
-                    ? 'This app is reachable from the internet with no password. Anyone who finds the URL can read your clients\' data, add sites and spend your API quota. Set APP_PASSWORD in .env before sharing the link.'
-                    : 'Fine behind a VPN or on your own machine. Set APP_PASSWORD in .env before putting this on the public internet.');
+                    ? 'This app is reachable from the internet with no password. Anyone who finds the URL can read your clients\' data, add sites and spend your API quota. Set ' . $setting . ' in ' . $settingsFile . ' before sharing the link.'
+                    : 'Fine behind a VPN or on your own machine. Set ' . $setting . ' in ' . $settingsFile . ' before putting this on the public internet.');
         }
 
         // ---- Database ------------------------------------------------------
@@ -105,8 +112,15 @@ final class Doctor
             $add($checks, 'Database', self::OK, 'Connection',
                 (string) Config::get('db_name') . '@' . (string) Config::get('db_host') . ' - ' . $version);
         } catch (Throwable $e) {
+            $keys = $isLocal
+                ? "'db_host', 'db_name', 'db_user' and 'db_pass'"
+                : 'DB_HOST, DB_NAME, DB_USER and DB_PASS';
+            $hint = str_contains($e->getMessage(), 'using password: NO')
+                ? ' The password is currently empty, so these are still the example values.'
+                : '';
             $add($checks, 'Database', self::FAIL, 'Connection', $e->getMessage(),
-                'Check DB_HOST, DB_PORT, DB_NAME, DB_USER and DB_PASS in .env. Shared hosts rarely use 127.0.0.1 - they give you a hostname like sqlXXX.yourhost.com, and the database and user names are usually prefixed.');
+                'Set ' . $keys . ' in ' . $settingsFile . ' to the values from your host\'s control panel.' . $hint
+                . ' Shared hosts rarely use 127.0.0.1 - they give you a hostname like sqlXXX.yourhost.com, and the database and user names are usually prefixed with your account id.');
         }
 
         if ($pdo !== null) {
