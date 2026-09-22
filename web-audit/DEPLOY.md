@@ -25,6 +25,24 @@ says outbound is blocked, that host can never run this tool — move on.
 
 ---
 
+## What free PHP hosting actually costs you
+
+Tried and measured on InfinityFree, in the order the problems appeared. Every
+one of these applies to shared hosting generally, so use it as a checklist:
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| HTTP 500 on every page | `Options -Indexes` in `.htaccess` — `Options` is not granted in `AllowOverride`, and a rejected directive 500s the whole directory | Ship only `IfModule`-guarded directives, or no `.htaccess` |
+| HTTP 500 on every page | PHP version older than the code's syntax floor | Set the PHP version in the control panel |
+| `open_basedir` warning on every request | Anything touching a path outside the document root — including a harmless `is_dir()` probe. The warning lands before `session_start()` and before redirect headers, breaking both | Never read outside the web root; keep the whole app inside it |
+| Empty response / `ERR_EMPTY_RESPONSE` | The front end cuts the request while PHP waits on an external API | Keep outbound calls well inside the limit; never retry inside one request |
+| `.env` may be downloadable | `.htaccess` protection is the only thing stopping it, and `.htaccess` is unreliable here | Put credentials in `config/local.php` — a PHP file is executed, never served |
+| No SSH | `bin/*.php` unusable | Use `setup.php` in the browser |
+| No cron | Scheduled scans unavailable | Drive the queue from the browser tab |
+
+The pattern: on shared hosting you are debugging the host, not the app. If the
+tool needs to work **today**, use Route B and keep the host for later.
+
 ## Route A — free PHP host with a free subdomain
 
 Best when your boss needs a link that keeps working. No credit card.
