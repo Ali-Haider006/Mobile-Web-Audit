@@ -37,10 +37,14 @@ if (PHP_VERSION_ID < 80000) {
  *                                                      the web root is all you get)
  * Detect which one we are in rather than making the operator configure it.
  */
-$wvaRoot = dirname(__DIR__);
-if (!is_dir($wvaRoot . '/src') && is_dir(__DIR__ . '/src')) {
-    $wvaRoot = __DIR__;
-}
+/*
+ * Check THIS directory first. Shared hosts set open_basedir to the document
+ * root, so probing the parent raises a warning on every request - and a
+ * warning emitted here lands before session_start() and any redirect header,
+ * which breaks both. The parent is only consulted when src/ is not here, and
+ * then quietly.
+ */
+$wvaRoot = is_dir(__DIR__ . '/src') ? __DIR__ : dirname(__DIR__);
 define('WVA_ROOT', $wvaRoot);
 require_once WVA_ROOT . '/src/bootstrap.php';
 
