@@ -37,12 +37,64 @@ define('WVA_ROOT', $wvaRoot);
 require_once WVA_ROOT . '/src/bootstrap.php';
 
 use Wva\Auth;
+use Wva\Config;
 use Wva\Database;
 use Wva\Helpers;
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
+
+/*
+ * Shared hosting hides PHP errors, so every fault looks like the same blank
+ * 500. Turn an uncaught error into a readable page - with the detail when
+ * 'debug' is on in config/local.php, and a short note when it is not.
+ */
+$wvaDebug = (bool) Config::get('debug', false);
+if ($wvaDebug) {
+    ini_set('display_errors', '1');
+    error_reporting(E_ALL);
+}
+
+function wva_error_page(string $summary, string $detail): void
+{
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: text/html; charset=utf-8');
+    }
+    $debug = (bool) Config::get('debug', false);
+    echo '<!doctype html><meta charset="utf-8"><title>Something broke</title>'
+        . '<body style="font:15px/1.6 system-ui;max-width:52em;margin:50px auto;padding:0 20px">'
+        . '<h1 style="font-family:Georgia,serif">Something broke</h1>'
+        . '<p>' . htmlspecialchars($summary, ENT_QUOTES) . '</p>';
+    if ($debug) {
+        echo '<pre style="background:#f4f4f2;border:1px solid #ddd;padding:14px;'
+            . 'white-space:pre-wrap;font-size:13px">' . htmlspecialchars($detail, ENT_QUOTES) . '</pre>';
+    } else {
+        echo '<p style="color:#555">Set <code>\'debug\' => true</code> in '
+            . '<code>config/local.php</code> and reload to see the details.</p>';
+    }
+    echo '<p><a href="index.php">Back to the dashboard</a> · <a href="setup.php">Setup checks</a></p>';
+}
+
+set_exception_handler(static function (Throwable $e): void {
+    wva_error_page(
+        'The page stopped with an unhandled error.',
+        get_class($e) . ': ' . $e->getMessage() . "\n\n"
+        . $e->getFile() . ':' . $e->getLine() . "\n\n" . $e->getTraceAsString()
+    );
+});
+
+register_shutdown_function(static function (): void {
+    $fatal = error_get_last();
+    if ($fatal === null || !in_array($fatal['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+        return;
+    }
+    wva_error_page(
+        'The page stopped with a fatal PHP error.',
+        $fatal['message'] . "\n\n" . $fatal['file'] . ':' . $fatal['line']
+    );
+});
 
 if (!defined('WVA_PUBLIC_PAGE')) {
     Auth::require();

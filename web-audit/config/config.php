@@ -14,6 +14,8 @@ return [
     'score_threshold' => 80,
     'app_password'    => '',
     'app_timezone'    => 'UTC',
+    // Set 'debug' => true in config/local.php to show errors on the page.
+    'debug'           => false,
     'http_timeout'    => 120,
     // Hard ceiling on how many URLs one sitemap import may pull in.
     'max_sitemap_urls' => 2000,

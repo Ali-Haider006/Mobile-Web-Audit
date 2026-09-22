@@ -16,6 +16,9 @@ return [
     // Required once this is reachable from the internet.
     'app_password' => '',
 
+    // Turn on while setting up: shows the real error instead of a blank page.
+    'debug' => true,
+
     'score_threshold' => 80,
     // Shared hosts often cap scripts at ~30s; keep the API call inside that.
     'http_timeout'    => 20,
