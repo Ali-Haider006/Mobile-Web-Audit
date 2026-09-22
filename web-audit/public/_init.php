@@ -6,6 +6,14 @@ declare(strict_types=1);
  */
 
 /*
+ * Including this file twice must not be fatal - it declares functions, and a
+ * "Cannot redeclare" error is a blank 500 on a host that hides errors.
+ */
+if (defined('WVA_INIT_DONE')) {
+    return;
+}
+
+/*
  * Version guard FIRST, in syntax every PHP parses. Without it, an older PHP
  * hits 8.0-only syntax in the files below and dies with a bare 500 that says
  * nothing. Keep this file free of 8.x-only syntax.
@@ -56,25 +64,38 @@ if ($wvaDebug) {
     error_reporting(E_ALL);
 }
 
-function wva_error_page(string $summary, string $detail): void
-{
-    if (!headers_sent()) {
-        http_response_code(500);
-        header('Content-Type: text/html; charset=utf-8');
+if (!function_exists('wva_error_page')) {
+    function wva_error_page(string $summary, string $detail): void
+    {
+        static $rendered = false;
+        if ($rendered) {
+            return;             // an exception AND a shutdown fatal both fire
+        }
+        $rendered = true;
+
+        if (!headers_sent()) {
+            http_response_code(500);
+            header('Content-Type: text/html; charset=utf-8');
+        }
+        // Reading config must not be able to throw from inside the handler.
+        try {
+            $debug = (bool) Config::get('debug', false);
+        } catch (Throwable $ignored) {
+            $debug = false;
+        }
+        echo '<!doctype html><meta charset="utf-8"><title>Something broke</title>'
+            . '<body style="font:15px/1.6 system-ui;max-width:52em;margin:50px auto;padding:0 20px">'
+            . '<h1 style="font-family:Georgia,serif">Something broke</h1>'
+            . '<p>' . htmlspecialchars($summary, ENT_QUOTES) . '</p>';
+        if ($debug) {
+            echo '<pre style="background:#f4f4f2;border:1px solid #ddd;padding:14px;'
+                . 'white-space:pre-wrap;font-size:13px">' . htmlspecialchars($detail, ENT_QUOTES) . '</pre>';
+        } else {
+            echo '<p style="color:#555">Set <code>\'debug\' => true</code> in '
+                . '<code>config/local.php</code> and reload to see the details.</p>';
+        }
+        echo '<p><a href="index.php">Back to the dashboard</a> · <a href="setup.php">Setup checks</a></p>';
     }
-    $debug = (bool) Config::get('debug', false);
-    echo '<!doctype html><meta charset="utf-8"><title>Something broke</title>'
-        . '<body style="font:15px/1.6 system-ui;max-width:52em;margin:50px auto;padding:0 20px">'
-        . '<h1 style="font-family:Georgia,serif">Something broke</h1>'
-        . '<p>' . htmlspecialchars($summary, ENT_QUOTES) . '</p>';
-    if ($debug) {
-        echo '<pre style="background:#f4f4f2;border:1px solid #ddd;padding:14px;'
-            . 'white-space:pre-wrap;font-size:13px">' . htmlspecialchars($detail, ENT_QUOTES) . '</pre>';
-    } else {
-        echo '<p style="color:#555">Set <code>\'debug\' => true</code> in '
-            . '<code>config/local.php</code> and reload to see the details.</p>';
-    }
-    echo '<p><a href="index.php">Back to the dashboard</a> · <a href="setup.php">Setup checks</a></p>';
 }
 
 set_exception_handler(static function (Throwable $e): void {
@@ -96,53 +117,65 @@ register_shutdown_function(static function (): void {
     );
 });
 
+define('WVA_INIT_DONE', true);
+
 if (!defined('WVA_PUBLIC_PAGE')) {
     Auth::require();
 }
 
 /** Render a fatal problem in a way that explains what to do about it. */
-function wva_fail(string $heading, string $detail): void
-{
-    http_response_code(500);
-    echo '<!doctype html><meta charset="utf-8"><title>Setup needed</title>';
-    echo '<link rel="stylesheet" href="assets/app.css">';
-    echo '<main><div class="card"><h1>' . Helpers::h($heading) . '</h1><p class="sub">'
-        . nl2br(Helpers::h($detail)) . '</p></div></main>';
-    exit;
+if (!function_exists('wva_fail')) {
+    function wva_fail(string $heading, string $detail): void
+    {
+        http_response_code(500);
+        echo '<!doctype html><meta charset="utf-8"><title>Setup needed</title>';
+        echo '<link rel="stylesheet" href="assets/app.css">';
+        echo '<main><div class="card"><h1>' . Helpers::h($heading) . '</h1><p class="sub">'
+            . nl2br(Helpers::h($detail)) . '</p></div></main>';
+        exit;
+    }
 }
 
 /** Confirms the schema is installed before a page tries to query it. */
-function wva_require_schema(): void
-{
-    static $checked = false;
-    if ($checked) {
-        return;
+if (!function_exists('wva_require_schema')) {
+    function wva_require_schema(): void
+    {
+        static $checked = false;
+        if ($checked) {
+            return;
+        }
+        try {
+            Database::value('SELECT 1 FROM settings LIMIT 1');
+        } catch (Throwable $e) {
+            wva_fail(
+                'Database not ready',
+                "Could not query the database.\n\n" . $e->getMessage()
+                . "\n\nCreate the database, load db/schema.sql, and set DB_* in .env."
+            );
+        }
+        $checked = true;
     }
-    try {
-        Database::value('SELECT 1 FROM settings LIMIT 1');
-    } catch (Throwable $e) {
-        wva_fail(
-            'Database not ready',
-            "Could not query the database.\n\n" . $e->getMessage()
-            . "\n\nCreate the database, load db/schema.sql, and set DB_* in .env."
-        );
+}
+
+if (!function_exists('wva_int')) {
+    function wva_int(string $key, int $default = 0): int
+    {
+        $value = $_GET[$key] ?? $_POST[$key] ?? null;
+        return is_numeric($value) ? (int) $value : $default;
     }
-    $checked = true;
 }
 
-function wva_int(string $key, int $default = 0): int
-{
-    $value = $_GET[$key] ?? $_POST[$key] ?? null;
-    return is_numeric($value) ? (int) $value : $default;
+if (!function_exists('wva_str')) {
+    function wva_str(string $key, string $default = ''): string
+    {
+        $value = $_GET[$key] ?? $_POST[$key] ?? null;
+        return is_string($value) ? trim($value) : $default;
+    }
 }
 
-function wva_str(string $key, string $default = ''): string
-{
-    $value = $_GET[$key] ?? $_POST[$key] ?? null;
-    return is_string($value) ? trim($value) : $default;
-}
-
-function wva_is_post(): bool
-{
-    return ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
+if (!function_exists('wva_is_post')) {
+    function wva_is_post(): bool
+    {
+        return ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
+    }
 }
