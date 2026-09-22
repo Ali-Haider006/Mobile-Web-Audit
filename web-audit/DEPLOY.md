@@ -64,15 +64,19 @@ and point the site at the `web-audit/public` subfolder instead. The shipped
 **4. Create `.env`** in the FTP root (copy `.env.example`, edit it):
 
 ```ini
-DB_HOST=sqlXXX.yourhost.com
+DB_HOST=<the MySQL hostname from your control panel>
 DB_PORT=3306
-DB_NAME=abc_web_audit
-DB_USER=abc_web_audit
-DB_PASS=...
-PSI_API_KEY=AIza...
-APP_PASSWORD=pick-something-long
+DB_NAME=<your prefixed database name>
+DB_USER=<your prefixed database user>
+DB_PASS=<the database password>
+PSI_API_KEY=<your PageSpeed Insights API key>
+APP_PASSWORD=<a long random string of your choosing>
 SCORE_THRESHOLD=80
 ```
+
+Angle brackets are placeholders — replace them, brackets included. Keep real
+values out of anything you commit: `.env` is gitignored, and secret scanners
+flag files that merely *look* like they hold credentials.
 
 `APP_PASSWORD` is not optional once this is public — see the checklist below.
 

@@ -73,7 +73,7 @@ require WVA_ROOT . '/src/views/header.php';
             <div class="field">
                 <label for="psi_api_key">PageSpeed Insights API key</label>
                 <input type="text" id="psi_api_key" name="psi_api_key" value="<?= Helpers::h($apiKey) ?>"
-                       placeholder="AIza…" autocomplete="off">
+                       placeholder="paste your API key" autocomplete="off">
             </div>
             <div><button class="btn primary" type="submit">Save</button></div>
         </div>
