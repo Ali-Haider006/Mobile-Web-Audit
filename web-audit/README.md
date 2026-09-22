@@ -47,6 +47,12 @@ Anything outside `public/` must not be web-reachable. Set `APP_PASSWORD` in
 `.env` to put a shared-password login in front of the UI (leave it empty if the
 tool already sits behind a VPN or basic auth).
 
+Putting it online for someone else to look at? See **[DEPLOY.md](DEPLOY.md)** —
+free hosting options, the above-the-web-root layout for hosts with no SSH, and
+the checklist to run through before sharing the link.
+
+Local check without a web server:
+
 ### Run it locally
 
 PHP's built-in server is enough for local use - no Apache or nginx needed:
@@ -99,7 +105,7 @@ The browser is only one way to drain the queue. For unattended runs:
 | `bin/scan.php --all [--import] [--run]` | Queue every active site; `--import` re-reads sitemaps first, `--run` also drains the queue |
 | `bin/scan.php --site=3` | Queue one site |
 | `bin/worker.php --max=20` | Audit up to 20 queued URLs (`--run=ID` for one scan, `--sleep=S` between calls) |
-| `bin/doctor.php [--api]` | Pre-flight check: PHP, extensions, `.env`, MySQL, schema, API key |
+| `bin/doctor.php [--api] [--public]` | Pre-flight check: PHP, extensions, `.env`, MySQL, schema, API key. The same checks are on `setup.php` in the browser, for hosting without SSH |
 | `bin/install.php` | Load `db/schema.sql` |
 | `bin/selftest.php` | Offline checks of the URL, sitemap and PageSpeed parsing — no DB, no network |
 | `bin/integration-test.php` | End-to-end check against your database — imports, tracking, queue, tasks, every UI query. Safe on a live database: it only touches sites on reserved `.invalid` domains it creates and removes, and spends no API calls |

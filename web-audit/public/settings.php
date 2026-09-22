@@ -53,7 +53,8 @@ $active = 'settings';
 require WVA_ROOT . '/src/views/header.php';
 ?>
 <h1>Settings</h1>
-<p class="sub">Stored in the database; .env supplies the fallback.</p>
+<p class="sub">Stored in the database; .env supplies the fallback.
+    Checking a new install or a new host? <a href="setup.php">Run the setup checks</a>.</p>
 
 <?php if ($checkResult): ?>
     <div class="flash <?= $checkResult['type'] === 'ok' ? 'ok' : 'error' ?>"><?= Helpers::h($checkResult['message']) ?></div>
