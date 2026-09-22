@@ -1,5 +1,6 @@
 -- Mobile Web Audit - Core Web Vitals tracker
--- MySQL 5.7+ / MariaDB 10.2+  (JSON column type is used for audit opportunities)
+-- MySQL 5.5+ / MariaDB 5.5+ — no version-specific column types are used, so this
+-- loads on shared hosting without knowing what it runs.
 --
 --   mysql -u root -p -e "CREATE DATABASE web_audit CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 --   mysql -u root -p web_audit < db/schema.sql
@@ -93,7 +94,9 @@ CREATE TABLE IF NOT EXISTS audits (
     field_cls            DECIMAL(6,3) DEFAULT NULL,
     field_inp_ms         INT UNSIGNED DEFAULT NULL,
     field_verdict        VARCHAR(20)  DEFAULT NULL,
-    opportunities        JSON         NULL,
+    -- LONGTEXT, not JSON: the app encodes/decodes this itself, and JSON as a
+    -- column type needs MySQL 5.7+. LONGTEXT loads anywhere.
+    opportunities        LONGTEXT     NULL,
     lighthouse_version   VARCHAR(20)  DEFAULT NULL,
     duration_ms          INT UNSIGNED DEFAULT NULL,
     fetched_at           DATETIME     NOT NULL,
