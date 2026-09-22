@@ -1,6 +1,7 @@
-Options -Indexes
+# Kept deliberately minimal: shared hosts often disallow Options overrides, and
+# any rejected directive here turns every page into a 500. Everything below is
+# guarded by IfModule so an unavailable module is skipped rather than fatal.
 
-# Long cache for static assets; bump the ?v= in the markup when they change.
 <IfModule mod_expires.c>
     ExpiresActive On
     ExpiresByType text/css "access plus 7 days"

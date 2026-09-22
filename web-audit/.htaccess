@@ -1,6 +1,6 @@
 # The document root should be public/. This is a belt-and-braces guard for
-# servers that are pointed at the project root by mistake.
-Options -Indexes
+# servers pointed at the project root by mistake. No Options directive here:
+# many shared hosts reject it and answer every request with a 500.
 
 <FilesMatch "^\.env|\.sql$|\.md$">
     <IfModule mod_authz_core.c>

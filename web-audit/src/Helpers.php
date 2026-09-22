@@ -185,7 +185,7 @@ final class Helpers
         return '<input type="hidden" name="_csrf" value="' . self::h(self::csrfToken()) . '">';
     }
 
-    public static function redirect(string $location): never
+    public static function redirect(string $location): void
     {
         header('Location: ' . $location);
         exit;

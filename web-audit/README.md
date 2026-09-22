@@ -24,7 +24,7 @@ drawn as inline SVG so it works behind a firewall.
 
 ## Requirements
 
-- PHP 8.1+ with `pdo_mysql`, `curl`, `simplexml`, `mbstring`
+- PHP 8.0+ with `pdo_mysql`, `curl`, `simplexml`, `mbstring` (8.1+ recommended)
 - MySQL 5.7+ or MariaDB 10.2+
 - A [PageSpeed Insights API key](https://developers.google.com/speed/docs/insights/v5/get-started)
   — optional but strongly recommended; without one Google rate-limits you to a

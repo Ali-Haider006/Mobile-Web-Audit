@@ -12,7 +12,7 @@ case. Three routes, with what each costs you in setup time and in limitations.
 
 | Requirement | Why | Deal-breaker? |
 |---|---|---|
-| PHP 8.1+ with `pdo_mysql`, `curl`, `simplexml`, `mbstring` | The app | **Yes** |
+| PHP 8.0+ with `pdo_mysql`, `curl`, `simplexml`, `mbstring` | The app | **Yes** — set the version in the control panel; too old shows a clear message, not a 500 |
 | MySQL 5.7+ / MariaDB 10.2+ | Storage | **Yes** |
 | **Outbound HTTPS from PHP** to `googleapis.com` | Every audit is an API call | **Yes — and the one free hosts most often block** |
 | `max_execution_time` ≥ 60s | One audit takes 10–40s | No — the queue retries timeouts, just noisily |

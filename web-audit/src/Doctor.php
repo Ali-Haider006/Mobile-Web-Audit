@@ -34,10 +34,10 @@ final class Doctor
         };
 
         // ---- PHP -----------------------------------------------------------
-        $add($checks, 'PHP', version_compare(PHP_VERSION, '8.1.0', '>=') ? self::OK : self::FAIL,
+        $add($checks, 'PHP', version_compare(PHP_VERSION, '8.0.0', '>=') ? self::OK : self::FAIL,
             'PHP ' . PHP_VERSION,
             'running as ' . PHP_SAPI,
-            'This tool needs PHP 8.1 or newer. On shared hosting the PHP version is usually a dropdown in the control panel.');
+            'This tool needs PHP 8.0 or newer. On shared hosting the PHP version is usually a dropdown in the control panel - set it to 8.1 or newer.');
 
         foreach (['pdo_mysql', 'curl', 'simplexml', 'mbstring', 'json'] as $extension) {
             $add($checks, 'PHP', extension_loaded($extension) ? self::OK : self::FAIL,
