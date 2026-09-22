@@ -118,7 +118,18 @@ require WVA_ROOT . '/src/views/header.php';
         body.set('_csrf', csrf);
 
         fetch('api/queue.php', { method: 'POST', body: body, credentials: 'same-origin' })
-            .then(function (res) { return res.json(); })
+            .then(function (res) {
+                return res.text().then(function (raw) {
+                    try {
+                        return JSON.parse(raw);
+                    } catch (e) {
+                        /* Show what the server actually said - an empty body or
+                           an HTML error page is the useful detail here. */
+                        var snippet = raw.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180);
+                        return { error: 'HTTP ' + res.status + ' - ' + (snippet || 'the server sent an empty response') };
+                    }
+                });
+            })
             .then(function (data) {
                 if (data.error) { line('Error: ' + data.error); note.textContent = 'Stopped.'; return; }
                 paint(data.done, data.failed, data.total);

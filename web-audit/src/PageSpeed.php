@@ -32,8 +32,23 @@ final class PageSpeed
             $request .= '&key=' . rawurlencode($apiKey);
         }
 
+        /*
+         * Shared hosts kill a script at max_execution_time, and a killed script
+         * answers with an empty body - which the browser reports only as
+         * "Unexpected end of JSON input". Fit the call inside the limit, and
+         * drop HTTP-level retries when there is no room for them: the queue
+         * retries the item anyway, so a retry here only spends the budget.
+         */
+        $limit    = (int) ini_get('max_execution_time');
+        $attempts = 3;
+        if ($limit > 0) {
+            $budget   = max(10, $limit - 12);
+            $timeout  = min($timeout, $budget);
+            $attempts = 1;
+        }
+
         $startedAt = microtime(true);
-        $response  = Http::get($request, $timeout, 3);
+        $response  = Http::get($request, $timeout, $attempts);
         $payload   = json_decode($response['body'], true);
 
         if (!is_array($payload)) {

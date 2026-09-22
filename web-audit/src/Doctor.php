@@ -151,7 +151,11 @@ final class Doctor
                 $url = PageSpeed::ENDPOINT . '?url=' . rawurlencode('https://example.com')
                     . '&strategy=mobile&category=PERFORMANCE'
                     . ($key !== '' ? '&key=' . rawurlencode($key) : '');
-                $response = Http::get($url, 90, 1);
+                // Same budget as a real audit: a shared host's front end cuts
+                // long requests, and a cut connection tells us nothing.
+                $limit   = (int) ini_get('max_execution_time');
+                $timeout = $limit > 0 ? max(10, min(60, $limit - 12)) : 60;
+                $response = Http::get($url, $timeout, 1);
                 $payload  = json_decode($response['body'], true);
 
                 if (isset($payload['error'])) {

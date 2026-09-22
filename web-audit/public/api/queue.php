@@ -49,12 +49,37 @@ $batch = isset($_POST['batch']) && is_numeric($_POST['batch']) ? max(1, min(5, (
 @set_time_limit(300);
 ignore_user_abort(true);
 
+/*
+ * If PHP dies anyway - execution limit, memory, a fatal - the browser would
+ * otherwise receive an empty body and could only say "Unexpected end of JSON
+ * input". Emit a real message instead, so the scan log names the problem.
+ */
+$wvaResponded = false;
+register_shutdown_function(static function () use (&$wvaResponded): void {
+    if ($wvaResponded) {
+        return;
+    }
+    $fatal = error_get_last();
+    $limit = (int) ini_get('max_execution_time');
+    $message = $fatal !== null && str_contains(strtolower((string) $fatal['message']), 'maximum execution time')
+        ? 'This host stopped the script at its ' . $limit . 's limit before PageSpeed answered. '
+          . 'Lower http_timeout in config/local.php (try ' . max(10, $limit - 20) . ') and re-run; the URL stays queued.'
+        : 'The server ended the request without a reply'
+          . ($fatal !== null ? ': ' . $fatal['message'] : '.');
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: application/json; charset=utf-8');
+    }
+    echo json_encode(['error' => $message], JSON_UNESCAPED_SLASHES);
+});
+
 try {
     Runs::requeueStale(15);
     $processed = AuditRunner::processQueue($runId, $batch);
     $counts    = $runId !== null ? Runs::refresh($runId) : ['total' => 0, 'done' => 0, 'failed' => 0, 'remaining' => 0];
     $run       = $runId !== null ? Runs::find($runId) : null;
 
+    $wvaResponded = true;
     echo json_encode([
         'processed' => array_map(static function (array $item): array {
             return [
@@ -72,6 +97,7 @@ try {
         'status'    => $run['status'] ?? 'unknown',
     ], JSON_UNESCAPED_SLASHES);
 } catch (Throwable $e) {
+    $wvaResponded = true;
     http_response_code(500);
     echo json_encode(['error' => $e->getMessage()]);
 }
