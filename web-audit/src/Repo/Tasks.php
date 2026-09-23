@@ -185,6 +185,57 @@ final class Tasks
         );
     }
 
+    /** The most recent closed task for a page - what a new one succeeds. */
+    public static function lastClosedForPage(int $pageId): ?array
+    {
+        return Database::one(
+            "SELECT * FROM tasks WHERE page_id = ? AND status IN ('resolved','ignored')
+             ORDER BY id DESC LIMIT 1",
+            [$pageId]
+        );
+    }
+
+    public static function linkPrevious(int $id, int $previousTaskId): void
+    {
+        Database::run('UPDATE tasks SET previous_task_id = ? WHERE id = ?', [$previousTaskId, $id]);
+    }
+
+    /**
+     * Walk previous_task_id back from a task, newest first. Bounded, because a
+     * corrupted chain must not loop forever.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public static function chain(int $taskId, int $limit = 10): array
+    {
+        $out  = [];
+        $seen = [];
+        $task = Database::one('SELECT * FROM tasks WHERE id = ?', [$taskId]);
+
+        while ($task !== null && count($out) < $limit) {
+            $previousId = (int) ($task['previous_task_id'] ?? 0);
+            if ($previousId === 0 || isset($seen[$previousId])) {
+                break;
+            }
+            $seen[$previousId] = true;
+            $task = Database::one('SELECT * FROM tasks WHERE id = ?', [$previousId]);
+            if ($task !== null) {
+                $out[] = $task;
+            }
+        }
+
+        return $out;
+    }
+
+    /** Record the latest score on an open task without touching its history. */
+    public static function touchScore(int $id, int $score): void
+    {
+        Database::run(
+            'UPDATE tasks SET latest_score = ?, updated_at = ? WHERE id = ?',
+            [$score, Database::now(), $id]
+        );
+    }
+
     public static function setAssignee(int $id, string $assignee): void
     {
         Database::run(

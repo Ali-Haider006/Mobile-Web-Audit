@@ -377,6 +377,78 @@ check('and omits it when turned off', str_contains(ClickUpSync::description($sam
 Settings::set('clickup_public_link', '1');
 Settings::set('app_url', '');
 
+step('Scheduled monitoring rules');
+use Wva\Monitor;
+
+// A page of its own so the rules are not fighting earlier steps' state.
+$rulePageId = Pages::upsert($siteId, 'https://integration-test.invalid/rules', null, true, 'manual');
+Settings::set('flap_band', '3');
+Settings::set('error_alert_streak', '3');
+Settings::set('clickup_token', '');          // no API calls from these checks
+Database::run('DELETE FROM tasks WHERE page_id = ?', [$rulePageId]);
+
+/** Store an audit the way AuditRunner does, then run the rules. */
+$audit = static function (int $score) use ($rulePageId, $siteId): array {
+    $row = ['status' => 'ok', 'performance_score' => $score, 'fetched_at' => Database::now(),
+            'lcp_ms' => 6000, 'cls' => '0.2', 'tbt_ms' => 800];
+    $auditId = Audits::insert($siteId, $rulePageId, null, $row);
+    Pages::recordAuditResult($rulePageId, $score, (string) $row['fetched_at']);
+    return Monitor::afterAudit($rulePageId, $row, $auditId);
+};
+
+check('passing page opens nothing', $audit(91)['action'], 'none');
+check('below target opens a task', $audit(25)['action'], 'task opened');
+$firstTask = Tasks::openForPage($rulePageId);
+check('exactly one open task', (int) Database::value('SELECT COUNT(*) FROM tasks WHERE page_id = ? AND status IN (\'open\',\'in_progress\')', [$rulePageId]), 1);
+
+check('still failing does not open a second', $audit(31)['action'], 'still failing');
+check('still one open task', (int) Database::value('SELECT COUNT(*) FROM tasks WHERE page_id = ? AND status IN (\'open\',\'in_progress\')', [$rulePageId]), 1);
+check('latest score tracked on it', (int) Tasks::openForPage($rulePageId)['latest_score'], 31);
+
+// Flap band: 80 and 82 are inside it, so the task must stay open.
+check('80 holds the task open', $audit(80)['action'], 'held');
+check('82 still holds', $audit(82)['action'], 'held');
+check('task is still open', Tasks::openForPage($rulePageId) !== null, true);
+
+// 83 is target + band, so this is a real recovery.
+check('83 resolves', $audit(83)['action'], 'recovered');
+check('no open task left', Tasks::openForPage($rulePageId), null);
+
+// Dropping again opens a NEW task that points back at the old one.
+check('re-failure opens a new task', $audit(40)['action'], 'task opened');
+$secondTask = Tasks::openForPage($rulePageId);
+check('it is a different task', (int) $secondTask['id'] !== (int) $firstTask['id'], true);
+check('linked to the previous one', (int) $secondTask['previous_task_id'], (int) $firstTask['id']);
+$chain = Tasks::chain((int) $secondTask['id']);
+check('chain finds the old task', count($chain), 1);
+check('chain carries its score', (int) $chain[0]['score_at_open'], 25);
+
+// Audit failures never open a task, and only speak up after three.
+$fail = static fn (): array => Monitor::afterAudit($rulePageId, ['status' => 'error', 'error_message' => 'timeout'], null);
+check('first failure is quiet', str_contains($fail()['detail'], 'alerting at 3'), true);
+check('second failure is quiet', str_contains($fail()['detail'], 'alerting at 3'), true);
+check('third failure speaks up', $fail()['action'], 'audit failing');
+check('streak recorded', (int) Pages::find($rulePageId)['consecutive_errors'], 3);
+$audit(40);
+check('a good audit clears the streak', (int) Pages::find($rulePageId)['consecutive_errors'], 0);
+
+// Per-URL list and assignee beat the site and global defaults.
+Settings::set('clickup_default_list_id', 'global-list');
+Settings::set('clickup_default_assignee', '900');
+Pages::setClickUpTarget($rulePageId, 'url-list', 777);
+$rulePage = Pages::find($rulePageId);
+check('per-URL list wins', Monitor::listFor($rulePage, ['clickup_list_id' => 'site-list']), 'url-list');
+check('per-URL assignee wins', Monitor::assigneeFor($rulePage, null), 777);
+Pages::setClickUpTarget($rulePageId, null, null);
+$rulePage = Pages::find($rulePageId);
+check('falls back to the site list', Monitor::listFor($rulePage, ['clickup_list_id' => 'site-list']), 'site-list');
+check('then the global list', Monitor::listFor($rulePage, null), 'global-list');
+check('and the default assignee', Monitor::assigneeFor($rulePage, null), 900);
+
+check('monitored() lists the page', in_array($rulePageId, array_map(static fn ($r) => (int) $r['id'], Pages::monitored()), true), true);
+Settings::set('clickup_default_list_id', '');
+Settings::set('clickup_default_assignee', '');
+
 step('Settings round-trip');
 Settings::set('score_threshold', '75');
 check('threshold from DB', Settings::threshold(), 75);

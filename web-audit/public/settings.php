@@ -18,6 +18,9 @@ if (wva_is_post()) {
     if ($action === 'save') {
         $threshold = max(1, min(100, (int) wva_str('score_threshold', '80')));
         Settings::set('score_threshold', (string) $threshold);
+        Settings::set('flap_band', (string) max(0, min(20, (int) wva_str('flap_band', '3'))));
+        Settings::set('error_alert_streak', (string) max(1, min(10, (int) wva_str('error_alert_streak', '3'))));
+        Settings::set('clickup_close_on_recovery', wva_str('clickup_close_on_recovery') !== '' ? '1' : '0');
         Helpers::flash('Settings saved.', 'ok');
         Helpers::redirect('settings.php');
     }
@@ -106,6 +109,28 @@ require WVA_ROOT . '/src/views/header.php';
                     <span class="muted">· read from <?= Helpers::h($secretsFile) ?>, not editable here</span></div>
             </div>
             <div><button class="btn primary" type="submit">Save</button></div>
+        </div>
+        <div class="row" style="margin-top:14px">
+            <div class="field">
+                <label for="flap_band">Resolve only once this far above target</label>
+                <input type="number" id="flap_band" name="flap_band" min="0" max="20"
+                       value="<?= (int) Wva\Monitor::flapBand() ?>">
+                <div class="small muted" style="margin-top:6px">Stops a page on the line opening and closing a task every run.</div>
+            </div>
+            <div class="field">
+                <label for="error_alert_streak">Failed audits before saying something</label>
+                <input type="number" id="error_alert_streak" name="error_alert_streak" min="1" max="10"
+                       value="<?= (int) Wva\Monitor::errorStreakLimit() ?>">
+                <div class="small muted" style="margin-top:6px">A timeout is not a performance problem, so it never opens a task.</div>
+            </div>
+            <div class="field">
+                <label>On recovery</label>
+                <label class="choice">
+                    <input type="checkbox" name="clickup_close_on_recovery" value="1"
+                        <?= Wva\Monitor::closeOnRecovery() ? 'checked' : '' ?>>
+                    Also close the ClickUp task (off: it comments and a person closes it)
+                </label>
+            </div>
         </div>
     </form>
     <form method="post" style="margin-top:8px">
@@ -201,9 +226,11 @@ require WVA_ROOT . '/src/views/header.php';
 <div class="card">
     <h3>Scheduling</h3>
     <p class="small">Run the worker from cron so scans finish without a browser tab open:</p>
-    <pre class="details"># queue every active site once a week, then drain the queue
-0 3 * * 1 php <?= Helpers::h(WVA_ROOT) ?>/bin/scan.php --all
-*/5 * * * * php <?= Helpers::h(WVA_ROOT) ?>/bin/worker.php --max=20</pre>
+    <pre class="details"># audit every monitored URL twice a week and act on the results
+0 6 * * 1 php <?= Helpers::h(WVA_ROOT) ?>/bin/monitor.php --quiet
+0 6 * * 4 php <?= Helpers::h(WVA_ROOT) ?>/bin/monitor.php --quiet</pre>
+    <p class="small muted">One command does the lot: audits, opens or comments on ClickUp tasks, and notes
+        recoveries. Add <code>--dry-run</code> to see what it would audit without spending API calls.</p>
 </div>
 
 <div class="card">

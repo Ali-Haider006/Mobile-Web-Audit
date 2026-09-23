@@ -112,6 +112,42 @@ The browser is only one way to drain the queue. For unattended runs:
 | `bin/selftest.php` | Offline checks of the URL, sitemap and PageSpeed parsing — no DB, no network |
 | `bin/integration-test.php` | End-to-end check against your database — imports, tracking, queue, tasks, every UI query. Safe on a live database: it only touches sites on reserved `.invalid` domains it creates and removes, and spends no API calls |
 
+## The Monitor screen
+
+The front door. One table of the URLs being watched:
+
+| URL | Score | Change | ClickUp list | Assignee | Task | Last audit | On |
+
+Paste three or four URLs, pick the list and the person their tasks should go to,
+and leave it. The schedule does the rest — nobody has to be watching when a
+scan finishes.
+
+Set the schedule in cron (the lines are on the Settings screen):
+
+```cron
+0 6 * * 1 php /path/to/web-audit/bin/monitor.php --quiet
+0 6 * * 4 php /path/to/web-audit/bin/monitor.php --quiet
+```
+
+`bin/monitor.php` audits every active URL and acts on each result. Add
+`--dry-run` to see what it would audit without spending API calls.
+
+### What happens to a score
+
+| Result | What the tool does |
+|---|---|
+| Below target | Opens a task and creates the ClickUp task in that URL's list, assigned to that URL's person |
+| Below target, task already open | Comments the new score on the existing ClickUp task — never a duplicate |
+| Recovered | Comments that it recovered and resolves the task here. **A person closes it in ClickUp** (there is a setting to auto-close, off by default) |
+| Fails again after recovering | A **new** task, linked back to the previous ones, with their ClickUp links listed in the description |
+| Hovering on the target | Nothing. A task opens below target but only resolves once the score is clearly above it, so 79/81/79 does not churn |
+| The audit itself failed | No task — a timeout is not a performance problem. After three in a row it says so |
+
+The two thresholds and the recovery behaviour are on the Settings screen.
+
+Where a task goes is resolved per URL first, then the site, then the global
+default — same for the assignee.
+
 ## ClickUp
 
 Tasks this tool opens can be created in ClickUp, after you have reviewed them.

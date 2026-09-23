@@ -175,6 +175,56 @@ final class Pages
         return $excluded;
     }
 
+    public static function bumpErrorStreak(int $pageId): int
+    {
+        Database::run('UPDATE pages SET consecutive_errors = consecutive_errors + 1 WHERE id = ?', [$pageId]);
+        return (int) Database::value('SELECT consecutive_errors FROM pages WHERE id = ?', [$pageId]);
+    }
+
+    public static function clearErrorStreak(int $pageId): void
+    {
+        Database::run(
+            'UPDATE pages SET consecutive_errors = 0, error_alerted_at = NULL WHERE id = ?',
+            [$pageId]
+        );
+    }
+
+    public static function markErrorAlerted(int $pageId): void
+    {
+        Database::run('UPDATE pages SET error_alerted_at = ? WHERE id = ?', [Database::now(), $pageId]);
+    }
+
+    /** Where this URL's tasks go, and who gets them. */
+    public static function setClickUpTarget(int $pageId, ?string $listId, ?int $assigneeId): void
+    {
+        Database::run(
+            'UPDATE pages SET clickup_list_id = ?, clickup_assignee_id = ? WHERE id = ?',
+            [$listId !== null && $listId !== '' ? $listId : null, $assigneeId ?: null, $pageId]
+        );
+    }
+
+    /**
+     * Every URL being monitored, newest failures first - the monitor screen.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public static function monitored(): array
+    {
+        return Database::all(
+            'SELECT p.*, s.name AS site_name, s.clickup_list_id AS site_list_id,
+                    COALESCE(s.score_threshold, ?) AS threshold,
+                    (SELECT t.id FROM tasks t WHERE t.page_id = p.id
+                      AND t.status IN (\'open\',\'in_progress\') ORDER BY t.id DESC LIMIT 1) AS open_task_id,
+                    (SELECT t.clickup_task_url FROM tasks t WHERE t.page_id = p.id
+                      AND t.status IN (\'open\',\'in_progress\') ORDER BY t.id DESC LIMIT 1) AS open_task_url
+             FROM pages p
+             INNER JOIN sites s ON s.id = p.site_id
+             WHERE p.is_tracked = 1
+             ORDER BY p.last_score IS NULL, p.last_score ASC, s.name, p.path',
+            [\Wva\Settings::threshold()]
+        );
+    }
+
     public static function recordAuditResult(int $pageId, ?int $score, string $fetchedAt): void
     {
         Database::run(

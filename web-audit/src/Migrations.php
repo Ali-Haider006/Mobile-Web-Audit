@@ -19,6 +19,16 @@ final class Migrations
         return [
             // ClickUp integration
             ['table' => 'sites', 'column' => 'clickup_list_id',   'definition' => 'VARCHAR(64) DEFAULT NULL'],
+
+            // Scheduled monitoring: where a URL's task goes, who owns it, and
+            // how many times its audit has failed in a row.
+            ['table' => 'pages', 'column' => 'clickup_list_id',     'definition' => 'VARCHAR(64) DEFAULT NULL'],
+            ['table' => 'pages', 'column' => 'clickup_assignee_id', 'definition' => 'INT UNSIGNED DEFAULT NULL'],
+            ['table' => 'pages', 'column' => 'consecutive_errors',  'definition' => 'TINYINT UNSIGNED NOT NULL DEFAULT 0'],
+            ['table' => 'pages', 'column' => 'error_alerted_at',    'definition' => 'DATETIME DEFAULT NULL'],
+
+            // A re-failure opens a new task that points back at the old one.
+            ['table' => 'tasks', 'column' => 'previous_task_id',  'definition' => 'INT UNSIGNED DEFAULT NULL'],
             ['table' => 'tasks', 'column' => 'clickup_task_id',   'definition' => 'VARCHAR(64) DEFAULT NULL'],
             ['table' => 'tasks', 'column' => 'clickup_task_url',  'definition' => 'VARCHAR(500) DEFAULT NULL'],
             ['table' => 'tasks', 'column' => 'clickup_synced_at', 'definition' => 'DATETIME DEFAULT NULL'],

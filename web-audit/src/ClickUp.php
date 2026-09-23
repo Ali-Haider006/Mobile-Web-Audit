@@ -211,6 +211,24 @@ final class ClickUp
     }
 
     /**
+     * Add a comment to a task. Used to report a repeat failure or a recovery
+     * on the existing task instead of opening another one.
+     */
+    public static function comment(string $taskId, string $text): void
+    {
+        self::call('POST', '/task/' . rawurlencode($taskId) . '/comment', [], [
+            'comment_text' => $text,
+            'notify_all'   => false,
+        ]);
+    }
+
+    /** Move a task to a status by name, e.g. "complete". */
+    public static function setStatus(string $taskId, string $status): void
+    {
+        self::call('PUT', '/task/' . rawurlencode($taskId), [], ['status' => $status]);
+    }
+
+    /**
      * @param array<string,mixed> $payload
      * @return array{id:string,url:string}
      */

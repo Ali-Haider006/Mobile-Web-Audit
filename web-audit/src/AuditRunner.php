@@ -41,6 +41,11 @@ final class AuditRunner
                 'error_message' => $e->getMessage(),
                 'fetched_at'    => Database::now(),
             ]);
+            // Counts towards the consecutive-failure alert.
+            try {
+                Monitor::afterAudit($pageId, ['status' => 'error', 'error_message' => $e->getMessage()], $auditId);
+            } catch (Throwable $ignored) {
+            }
             return [
                 'ok'       => false,
                 'audit_id' => $auditId,
@@ -56,14 +61,14 @@ final class AuditRunner
         $score = $result['performance_score'] ?? null;
         Pages::recordAuditResult($pageId, $score === null ? null : (int) $score, (string) $result['fetched_at']);
 
+        // One place decides what a score means: open, comment, resolve or
+        // ignore. Never allowed to break the audit that produced it.
         $taskAction = null;
-        if ($score !== null) {
-            $threshold = Sites::threshold($site);
-            if ((int) $score < $threshold) {
-                [, $taskAction] = Tasks::openOrRefresh($page, $result + ['performance_score' => (int) $score], $auditId, $threshold);
-            } elseif (Tasks::autoResolve($pageId, (int) $score, $threshold)) {
-                $taskAction = 'resolved';
-            }
+        try {
+            $outcome    = Monitor::afterAudit($pageId, $result, $auditId);
+            $taskAction = $outcome['action'] === 'none' ? null : $outcome['action'];
+        } catch (Throwable $e) {
+            $taskAction = 'rules failed: ' . $e->getMessage();
         }
 
         return [

@@ -8,6 +8,7 @@ use Wva\Helpers;
 $flash  = Helpers::flash();
 $active = $active ?? '';
 $nav    = [
+    'monitor'   => ['monitor.php', 'Monitor'],
     'dashboard' => ['index.php', 'Dashboard'],
     'sites'     => ['sites.php', 'Sites'],
     'quick'     => ['quick.php', 'Quick check'],
