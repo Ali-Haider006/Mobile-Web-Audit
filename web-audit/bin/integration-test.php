@@ -221,8 +221,20 @@ step('ClickUp wiring (no API calls)');
 use Wva\ClickUp;
 use Wva\ClickUpSync;
 
+Wva\Migrations::run();   // idempotent; the suite must not depend on install order
 check('columns migrated in', Wva\Migrations::pending(), []);
+
+// Control the token rather than assuming the database has none, and put back
+// whatever was there so running this never disturbs a real configuration.
+$savedToken   = (string) Settings::get('clickup_token', '');
+$savedListId  = (string) Settings::get('clickup_default_list_id', '');
+$savedAppUrl  = (string) Settings::get('app_url', '');
+$savedAuto    = (string) Settings::get('clickup_auto_create', '');
+
+Settings::set('clickup_token', '');
 check('not configured without a token', ClickUp::configured(), false);
+Settings::set('clickup_token', 'pk_integration_test_token');
+check('configured once a token is set', ClickUp::configured(), true);
 
 Settings::set('clickup_default_list_id', '900100');
 check('falls back to the global list', ClickUpSync::listIdFor(['clickup_list_id' => null]), '900100');
@@ -254,11 +266,36 @@ check('body embeds the metrics', str_contains($body, 'LCP 6.42 s'), true);
 Settings::set('app_url', '');
 check('no backlink when app_url is unset', str_contains(ClickUpSync::description($sample), '/page.php?id='), false);
 
-// Pushing without a token must be a clean skip, never an exception.
-$openTask = Tasks::openForPage($pageId) ?? ['id' => 0];
-$result = ClickUpSync::push((int) ($openTask['id'] ?: 999999));
-check('push without a token is skipped, not fatal', $result['ok'], false);
-check('skip reason is reported', is_string($result['skipped'] ?? null) || is_string($result['error'] ?? null), true);
+// $taskId is the task opened earlier in this run - a real row, so these
+// exercise the skip paths rather than the not-found path.
+Settings::set('clickup_token', '');
+$noToken = ClickUpSync::push($taskId);
+check('push without a token skips', $noToken['ok'], false);
+check('skip says why', $noToken['skipped'], 'no ClickUp token set');
+
+// With a token but no list chosen anywhere, it must skip rather than call out.
+Settings::set('clickup_token', 'pk_integration_test_token');
+Settings::set('clickup_default_list_id', '');
+$noList = ClickUpSync::push($taskId);
+check('no list chosen skips', $noList['skipped'], 'no ClickUp list chosen for this site');
+
+// A missing task is an error, not a skip.
+$missing = ClickUpSync::push(99999999);
+check('missing task reports an error', $missing['error'], 'Task not found');
+
+// An already-synced task is not sent twice.
+Tasks::recordClickUp($taskId, 'fake123', 'https://app.clickup.com/t/fake123');
+Settings::set('clickup_default_list_id', '900100');
+$again = ClickUpSync::push($taskId);
+check('already synced is not resent', $again['skipped'], 'already in ClickUp');
+check('and returns the existing link', $again['url'], 'https://app.clickup.com/t/fake123');
+Database::run('UPDATE tasks SET clickup_task_id = NULL, clickup_task_url = NULL WHERE id = ?', [$taskId]);
+
+Settings::set('clickup_token', $savedToken);
+Settings::set('clickup_default_list_id', $savedListId);
+Settings::set('app_url', $savedAppUrl);
+Settings::set('clickup_auto_create', $savedAuto);
+check('settings restored', (string) Settings::get('clickup_token', ''), $savedToken);
 
 step('Settings round-trip');
 Settings::set('score_threshold', '75');
