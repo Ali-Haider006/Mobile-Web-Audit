@@ -1,12 +1,13 @@
 # Putting this online
 
-Written for the "I need a link to send my boss, I have no domain and no budget"
-case. Three routes, with what each costs you in setup time and in limitations.
+The main route is **your own server over FTP**, which is what
+`speed.pixelchefs.com` is. The free-hosting routes further down are kept for
+reference; skip them unless you are back to having no server.
 
-> Free hosting changes constantly, and provider names/limits here are from
-> training data that has a cutoff — check current terms before committing. What
-> does **not** change is the checklist below: use it to judge any host, and let
-> the Setup screen give you the verdict rather than the marketing page.
+> Nothing in this file asks you to send a password to anyone. Every credential
+> is typed once, on the server, into `config/local.php` — a PHP file, so even
+> if the web server were misconfigured it returns a blank page rather than its
+> contents. Do not paste credentials into a chat, a ticket or a commit.
 
 ## What this app needs from a host
 
@@ -22,6 +23,133 @@ case. Three routes, with what each costs you in setup time and in limitations.
 That third row is the one that quietly kills free PHP hosts. **Test it before you
 invest any time**: deploy, open `setup.php`, press *Test the PageSpeed API*. If it
 says outbound is blocked, that host can never run this tool — move on.
+
+---
+
+## Putting it on your own server (FTP + MySQL)
+
+### 1. Build the upload
+
+On your machine, in the `web-audit` folder:
+
+```bash
+php bin/package.php          # dist/mobile-web-audit.zip
+```
+
+Use `php bin/package.php --flat` instead if your host will not let you move the
+document root — see step 3. Neither archive contains `config/local.php` or
+`.env`, so it is safe to move around.
+
+### 2. Create the database
+
+In your SQL server's control panel (or from a machine that can reach it):
+
+```sql
+CREATE DATABASE pixelchefs_audit CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+Use the database, user and password your host gives you. If the SQL server is a
+separate IP from the web server, the MySQL user usually has to be allowed to
+connect from the web server's IP — that is a grant on the SQL side
+(`'user'@'<web server ip>'`), and it is the most common reason the first page
+load says *Cannot connect to MySQL*.
+
+### 3. Upload
+
+Point your FTP client at the host you were given and upload the zip, then unzip
+it with the control panel's file manager. Unzipping on the server is worth the
+extra step: a few dozen small files over FTP is slow, and a half-finished
+upload is the usual cause of a mystery 500.
+
+**Preferred layout** — document root points at `public/`:
+
+```
+/home/you/speed.pixelchefs.com/      <- unzip the normal package here
+    public/                          <- set this as the document root
+    src/  config/  bin/  db/         <- not reachable over HTTP at all
+```
+
+**Flat layout** — if the document root is fixed and you cannot move it, use
+`--flat` and unzip straight into it. The app detects which layout it is in. The
+folders that must never be served carry their own `.htaccess` denying
+everything, which was verified against Apache 2.4: `src/`, `config/`, `db/`,
+`bin/`, plus `.md` and `.sql` files, all answer 403. That guard needs
+`AllowOverride All` (or at least `AllowOverride Limit`) on the directory —
+standard on cPanel/Plesk, worth confirming on a hand-rolled vhost. On nginx
+`.htaccess` does nothing, so use the preferred layout there, not the flat one.
+
+### 4. Enter the credentials on the server
+
+Create `config/local.php` with the file manager's editor — do not upload it, and
+do not put real values in `.env` where a mis-served file leaks them as text:
+
+```php
+<?php
+return [
+    'db_host'      => 'your-sql-ip',
+    'db_name'      => 'pixelchefs_audit',
+    'db_user'      => 'your-sql-user',
+    'db_pass'      => 'your-sql-password',
+    'psi_api_key'  => 'your-pagespeed-key',
+    'clickup_token'=> 'pk_...',
+    'app_password' => 'a-long-random-passphrase',
+    'app_timezone' => 'Asia/Karachi',
+];
+```
+
+`app_password` is not optional here. This is a public URL: without it, anyone
+who finds it can read client data, add sites and burn your API quota. The Setup
+screen fails the deployment outright if it is missing.
+
+### 5. Create the tables and check the install
+
+Open `https://speed.pixelchefs.com/setup.php`. It creates the schema and then
+checks PHP's version and extensions, the database, the schema, outbound HTTPS
+to Google, and the login gate. Work top-down until everything is green; each
+failure prints what to do about it. With shell access, `php bin/install.php`
+and `php bin/doctor.php --api --public` do the same thing.
+
+**Look at the page, not just the status code.** If you see raw `<?php` text,
+the server is handing out source instead of running it — PHP is not wired up
+for this vhost. Stop and fix that before going further.
+
+### 6. Set the schedule
+
+Twice a week, as your boss asked — Monday and Thursday at 6am:
+
+```
+0 6 * * 1,4 /usr/bin/php /home/you/speed.pixelchefs.com/bin/monitor.php --quiet
+```
+
+Check the PHP binary's path first (`which php`, or the control panel's cron
+page usually shows it). Some panels have a separate, older CLI PHP than the web
+one; if cron reports a version error, use the full path to the 8.x binary.
+
+Run it once by hand first and watch the output without `--quiet`. `--dry-run`
+audits nothing and creates nothing, which is the safe way to confirm the URL
+list is what you expect.
+
+### 7. Before you send the link round
+
+- Load the site over **https**. If the panel offers a free Let's Encrypt
+  certificate, turn it on; the login password crosses the network otherwise.
+- Sign in and re-open `setup.php`. It names where each secret came from; both
+  the PageSpeed key and the ClickUp token should read as coming from
+  `config/local.php`. "From the database" means the file is missing that value
+  and an old stored one is being used instead; "also in the database" means the
+  file wins but a stale copy is still lying around. Both are worth clearing.
+- Add one real URL, audit it, and confirm the ClickUp task lands in the right
+  list with the right assignee. This is the first time the ClickUp API is
+  genuinely exercised — everything up to here can be right while the token
+  still lacks access to the list.
+
+### Updating later
+
+Rebuild the package, upload, unzip over the top, then run `bin/install.php` (or
+open `setup.php`) so any new columns are added. `config/local.php` is never in
+the archive, so it survives the overwrite untouched. Migrations only ever add
+things, so the data is not at risk — but take the panel's database backup
+before a big jump anyway.
 
 ---
 

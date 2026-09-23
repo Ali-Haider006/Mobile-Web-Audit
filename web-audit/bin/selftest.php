@@ -202,6 +202,37 @@ check('no user key means nobody', ClickUp::parseTokenOwner(['err' => 'Token inva
 check('a user without an id means nobody', ClickUp::parseTokenOwner(['user' => ['username' => 'x']]), null);
 check('id zero means nobody', ClickUp::parseTokenOwner(['user' => ['id' => 0, 'username' => 'x']]), null);
 
+echo "Deployment package\n";
+$zipPath = WVA_ROOT . '/dist/mobile-web-audit-flat.zip';
+@unlink($zipPath);
+$pkg = (string) shell_exec('php ' . escapeshellarg(WVA_ROOT . '/bin/package.php') . ' --flat 2>&1');
+check('the flat package builds', is_file($zipPath), true);
+check('and says which layout it built', str_contains($pkg, 'flat'), true);
+if (is_file($zipPath)) {
+    $zip = new ZipArchive();
+    $zip->open($zipPath);
+    $names = [];
+    for ($i = 0; $i < $zip->numFiles; $i++) {
+        $names[] = $zip->getNameIndex($i);
+    }
+    $zip->close();
+    check('no credentials are packed', in_array('config/local.php', $names, true) || in_array('.env', $names, true), false);
+    check('no test suites are packed', in_array('bin/selftest.php', $names, true), false);
+    check('the entry point is at the top', in_array('index.php', $names, true), true);
+    check('src stays in its folder', in_array('src/Monitor.php', $names, true), true);
+    check('the guards come with it', in_array('src/.htaccess', $names, true), true);
+    check('one .htaccess at the root, merged', count(array_keys($names, '.htaccess')), 1);
+    $merged = null;
+    $zip = new ZipArchive();
+    $zip->open($zipPath);
+    $merged = $zip->getFromName('.htaccess');
+    $zip->close();
+    check('the merge keeps the deny rules', str_contains((string) $merged, 'FilesMatch'), true);
+    check('and the security headers', str_contains((string) $merged, 'X-Frame-Options'), true);
+    unlink($zipPath);                       // build output, not a fixture
+    @rmdir(WVA_ROOT . '/dist');
+}
+
 echo "Secret masking\n";
 check('short secrets are fully hidden', Doctor::mask('abc'), '***');
 check('long secrets keep 6 characters', str_starts_with(Doctor::mask('pk_98765_SECRETVALUE'), 'pk_987'), true);

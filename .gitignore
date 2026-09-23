@@ -1,6 +1,12 @@
 # Local config - never commit credentials or API keys
 .env
 web-audit/.env
+config/local.php
+web-audit/config/local.php
+
+# Build output
+dist/
+web-audit/dist/
 
 # Editor / OS noise
 .DS_Store

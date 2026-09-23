@@ -1,0 +1,14 @@
+# Nothing in this folder is ever fetched over HTTP. It matters when the whole
+# project sits inside the document root, which is the only layout some hosts
+# allow. Harmless when the document root is public/.
+#
+# No Options directive: several shared hosts reject it and answer every
+# request with a 500.
+
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>
