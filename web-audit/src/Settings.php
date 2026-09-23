@@ -14,9 +14,19 @@ final class Settings
     public static function get(string $name, mixed $default = null): mixed
     {
         if (self::$cache === null) {
+            /*
+             * A stored setting is an override, so an unreachable database means
+             * "no overrides", not "stop". Letting it throw here took down the
+             * Setup screen - the one page whose whole job is to explain why the
+             * database cannot be reached - before it rendered a single check.
+             */
             self::$cache = [];
-            foreach (Database::all('SELECT name, value FROM settings') as $row) {
-                self::$cache[(string) $row['name']] = (string) $row['value'];
+            try {
+                foreach (Database::all('SELECT name, value FROM settings') as $row) {
+                    self::$cache[(string) $row['name']] = (string) $row['value'];
+                }
+            } catch (\Throwable $e) {
+                // No database, or no settings table yet: fall through to Config.
             }
         }
         if (isset(self::$cache[$name]) && self::$cache[$name] !== '') {

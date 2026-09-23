@@ -139,6 +139,34 @@ final class Doctor
             $add($checks, 'Database', self::FAIL, 'Connection', $e->getMessage(),
                 'Set ' . $keys . ' in ' . $settingsFile . ' to the values from your host\'s control panel.' . $hint
                 . ' Shared hosts rarely use 127.0.0.1 - they give you a hostname like sqlXXX.yourhost.com, and the database and user names are usually prefixed with your account id.');
+
+            /*
+             * The host gives you a hostname, a username and a password, never a
+             * database name - so the usual first failure is "Unknown database"
+             * and no way to find the right one. If the credentials themselves
+             * work, ask the server what this account can actually see.
+             */
+            $probe = Database::probe();
+            if ($probe['ok']) {
+                $dbKey = $isLocal ? "'db_name'" : 'DB_NAME';
+                if ($probe['databases'] !== []) {
+                    $add($checks, 'Database', self::WARN, 'Databases this login can see',
+                        implode(', ', $probe['databases']),
+                        'The credentials are right - it is ' . $dbKey . ' that is wrong. Set it to whichever of these is '
+                        . 'yours (an empty one, or one already holding this tool\'s tables), then reload.');
+                } elseif ($probe['can_create']) {
+                    $add($checks, 'Database', self::WARN, 'No database yet', 'this login may create one',
+                        'The credentials are right and this account can create databases, but none exists. Create one in '
+                        . 'your host\'s control panel, or run: CREATE DATABASE pixelchefs_audit CHARACTER SET utf8mb4 '
+                        . 'COLLATE utf8mb4_unicode_ci; then set ' . $dbKey . ' to that name.');
+                } else {
+                    $add($checks, 'Database', self::WARN, 'No database yet', 'and this login cannot create one',
+                        'The credentials are right but the account can see no database and is not allowed to create one. '
+                        . 'Ask whoever runs the SQL server to create a database and grant this user access to it.');
+                }
+                $add($checks, 'Database', self::OK, 'MySQL reached', $probe['version']
+                    . ' - so the host, username and password are correct');
+            }
         }
 
         if ($pdo !== null) {

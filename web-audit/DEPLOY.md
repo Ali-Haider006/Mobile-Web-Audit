@@ -40,19 +40,34 @@ Use `php bin/package.php --flat` instead if your host will not let you move the
 document root — see step 3. Neither archive contains `config/local.php` or
 `.env`, so it is safe to move around.
 
-### 2. Create the database
+### 2. Sort out the database
 
-In your SQL server's control panel (or from a machine that can reach it):
+The app needs **four** values. A host normally hands you three and leaves the
+fourth unsaid, which is where this step usually stalls.
+
+| Setting | What your host calls it | Notes |
+|---|---|---|
+| `db_host` | hostname, or the server IP | Use `localhost` when MySQL runs on the same machine as the site — it is faster and sidesteps the allow-list below. Use the hostname or IP only for a separate SQL server. |
+| `db_user` | username | On cPanel-style panels it is prefixed with the account, e.g. `acct_appuser`. |
+| `db_pass` | password | |
+| `db_name` | **often not given at all** | The panel's "MySQL Databases" page lists it. It carries the same account prefix, and is frequently the same string as the username. |
+
+If the panel shows no database, create one there, or:
 
 ```sql
-CREATE DATABASE pixelchefs_audit CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE acct_audit CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-Use the database, user and password your host gives you. If the SQL server is a
-separate IP from the web server, the MySQL user usually has to be allowed to
-connect from the web server's IP — that is a grant on the SQL side
-(`'user'@'<web server ip>'`), and it is the most common reason the first page
-load says *Cannot connect to MySQL*.
+**Do not guess `db_name` more than once.** Fill in the other three, leave your
+best guess in `db_name`, and open `setup.php`: when the name is wrong but the
+credentials are right, it says so and **lists the databases that login can
+actually see**. With shell access, `php bin/dbcheck.php` prints the same thing.
+
+If the SQL server is a separate machine, its MySQL user usually has to be
+allowed to connect from the web server's IP — a grant on the SQL side
+(`'user'@'<web server ip>'`). Without it the connection is refused or simply
+hangs; the app gives up after 10 seconds and says so rather than leaving you
+with a blank page.
 
 ### 3. Upload
 

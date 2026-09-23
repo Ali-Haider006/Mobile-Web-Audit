@@ -502,6 +502,43 @@ Pages::setTracked($siteId, [$rulePageId], true);
 
 Database::run('DELETE FROM tasks WHERE page_id = ?', [$rulePageId]);
 
+step('Settings survive an unreadable settings table');
+
+/*
+ * The Setup screen's whole job is to explain why the database cannot be
+ * reached, and it used to die before rendering a single check because reading
+ * a setting threw. A stored setting is an override, so "cannot read them"
+ * must mean "no overrides", not "stop".
+ */
+$clearSettingsCache = static function (): void {
+    $prop = new ReflectionProperty(Settings::class, 'cache');
+    $prop->setAccessible(true);
+    $prop->setValue(null, null);
+};
+
+Database::run('RENAME TABLE settings TO settings_probe_bak');
+try {
+    $clearSettingsCache();
+    $threw = false;
+    $value = null;
+    try {
+        $value = Settings::get('a_key_no_config_file_defines', 'fallback');
+    } catch (Throwable $e) {
+        $threw = true;
+    }
+    check('reading a setting does not throw', $threw, false);
+    check('and falls back to the caller\'s default', $value, 'fallback');
+    check('a config-file value still comes through', Settings::get('score_threshold'), 80);
+
+    $checks = \Wva\Doctor::run(false, false);
+    check('Doctor still produces a report', count($checks) > 0, true);
+    $labels = array_column($checks, 'label');
+    check('and reaches the database section', in_array('Connection', $labels, true), true);
+} finally {
+    Database::run('RENAME TABLE settings_probe_bak TO settings');
+    $clearSettingsCache();
+}
+
 step('Settings round-trip');
 Settings::set('score_threshold', '75');
 check('threshold from DB', Settings::threshold(), 75);
