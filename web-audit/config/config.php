@@ -14,6 +14,9 @@ return [
     'clickup_token'   => '',
     'score_threshold' => 80,
     'app_password'    => '',
+    // Set to a long random string to enable cron.php, the URL-triggered
+    // scheduled run. Empty means that endpoint answers 404.
+    'cron_key'        => '',
     'app_timezone'    => 'UTC',
     // Set 'debug' => true in config/local.php to show errors on the page.
     'debug'           => false,

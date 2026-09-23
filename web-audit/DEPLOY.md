@@ -130,7 +130,10 @@ for this vhost. Stop and fix that before going further.
 
 ### 6. Set the schedule
 
-Twice a week, as your boss asked — Monday and Thursday at 6am:
+Twice a week, as the brief asks — Monday and Thursday at 6am.
+
+**With a control panel or shell**, use the command. It has no time limit, so it
+finishes the whole list in one go:
 
 ```
 0 6 * * 1,4 /usr/bin/php /home/you/speed.pixelchefs.com/bin/monitor.php --quiet
@@ -143,6 +146,31 @@ one; if cron reports a version error, use the full path to the 8.x binary.
 Run it once by hand first and watch the output without `--quiet`. `--dry-run`
 audits nothing and creates nothing, which is the safe way to confirm the URL
 list is what you expect.
+
+**With only FTP and a database** — no panel, no shell — use the URL instead.
+Add a long random `cron_key` to `config/local.php`:
+
+```php
+'cron_key' => 'a-long-random-string-nobody-will-guess',
+```
+
+Then point any external scheduler (cron-job.org, EasyCron, a GitHub Action, a
+colleague's server) at:
+
+```
+https://speed.pixelchefs.com/cron.php?key=a-long-random-string-nobody-will-guess
+```
+
+Without `cron_key` the endpoint answers 404, and so does a wrong key — the two
+are indistinguishable from outside, so nobody can probe for it. Treat the URL
+as a password, because it is one.
+
+A web request has a time limit a shell does not, so `cron.php` works to a
+budget: it audits what fits, leaves the rest queued, and continues on the next
+call. Scheduling it **hourly** is a good default even for a twice-weekly audit —
+the extra calls finish a long list and then cost nothing, since a call with
+nothing queued does no work. Visiting the URL in a browser runs it immediately,
+which is the easiest way to test it.
 
 ### 7. Before you send the link round
 

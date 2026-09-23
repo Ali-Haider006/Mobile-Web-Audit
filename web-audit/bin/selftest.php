@@ -202,6 +202,17 @@ check('no user key means nobody', ClickUp::parseTokenOwner(['err' => 'Token inva
 check('a user without an id means nobody', ClickUp::parseTokenOwner(['user' => ['username' => 'x']]), null);
 check('id zero means nobody', ClickUp::parseTokenOwner(['user' => ['id' => 0, 'username' => 'x']]), null);
 
+echo "Cron endpoint\n";
+$cron = file_get_contents(WVA_ROOT . '/public/cron.php');
+check('it is a public page, not behind the login gate', str_contains($cron, "define('WVA_PUBLIC_PAGE', true)"), true);
+check('the key is compared in constant time', str_contains($cron, 'hash_equals('), true);
+check('an unset key disables it', str_contains($cron, '$configured === \'\' || !hash_equals'), true);
+check('off and wrong look the same', substr_count($cron, 'http_response_code(404)'), 1);
+check('it refuses to run against an old schema', str_contains($cron, 'Migrations::pending()'), true);
+check('it works to a time budget', str_contains($cron, '$budget'), true);
+check('and resumes what it could not finish', str_contains($cron, 'Runs::unfinished()'), true);
+check('cron_key ships empty', (string) (require WVA_ROOT . '/config/config.php')['cron_key'], '');
+
 echo "Deployment package\n";
 $zipPath = WVA_ROOT . '/dist/mobile-web-audit-flat.zip';
 @unlink($zipPath);
