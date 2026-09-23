@@ -60,11 +60,7 @@ final class AuditRunner
         if ($score !== null) {
             $threshold = Sites::threshold($site);
             if ((int) $score < $threshold) {
-                [$taskId, $taskAction] = Tasks::openOrRefresh($page, $result + ['performance_score' => (int) $score], $auditId, $threshold);
-                if ($taskAction === 'created') {
-                    // Never lets a ClickUp problem fail the audit.
-                    ClickUpSync::pushIfAuto($taskId);
-                }
+                [, $taskAction] = Tasks::openOrRefresh($page, $result + ['performance_score' => (int) $score], $auditId, $threshold);
             } elseif (Tasks::autoResolve($pageId, (int) $score, $threshold)) {
                 $taskAction = 'resolved';
             }

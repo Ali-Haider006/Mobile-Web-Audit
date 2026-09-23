@@ -11,6 +11,7 @@ return [
     'db_user'         => 'root',
     'db_pass'         => '',
     'psi_api_key'     => '',
+    'clickup_token'   => '',
     'score_threshold' => 80,
     'app_password'    => '',
     'app_timezone'    => 'UTC',

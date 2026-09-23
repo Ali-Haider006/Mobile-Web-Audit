@@ -31,6 +31,10 @@ $counts  = Runs::refresh($runId);
 $results = Audits::forRun($runId);
 $warning = AuditRunner::warnIfNoApiKey();
 
+// Tasks this scan opened that have not been sent to ClickUp yet.
+$clickUpCandidates = Wva\ClickUp::configured() ? Wva\Repo\Tasks::forRun($runId) : [];
+$scanFinished = (int) ($counts['remaining'] ?? 0) === 0;
+
 $title  = 'Scan';
 $active = 'sites';
 require WVA_ROOT . '/src/views/header.php';
@@ -57,6 +61,21 @@ require WVA_ROOT . '/src/views/header.php';
     <div class="progress"><i id="progress-bar"></i></div>
     <div class="log" id="log"></div>
 </div>
+
+<?php if ($clickUpCandidates !== []): ?>
+    <div class="card">
+        <div class="actions">
+            <a class="btn primary" href="clickup.php?run_id=<?= $runId ?>">
+                Create ClickUp task<?= count($clickUpCandidates) === 1 ? '' : 's' ?> (<?= count($clickUpCandidates) ?>)
+            </a>
+            <span class="small muted">
+                <?= count($clickUpCandidates) ?> page<?= count($clickUpCandidates) === 1 ? '' : 's' ?>
+                <?= $scanFinished ? 'came back' : 'so far' ?> below target.
+                You choose the list and can edit every task before anything is created.
+            </span>
+        </div>
+    </div>
+<?php endif; ?>
 
 <h2>Results</h2>
 <div class="card">

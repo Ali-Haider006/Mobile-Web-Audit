@@ -18,15 +18,12 @@ if (wva_is_post()) {
     if ($action === 'save') {
         $threshold = max(1, min(100, (int) wva_str('score_threshold', '80')));
         Settings::set('score_threshold', (string) $threshold);
-        Settings::set('psi_api_key', wva_str('psi_api_key'));
         Helpers::flash('Settings saved.', 'ok');
         Helpers::redirect('settings.php');
     }
 
     if ($action === 'save_clickup') {
-        Settings::set('clickup_token', wva_str('clickup_token'));
         Settings::set('clickup_default_list_id', wva_str('clickup_default_list_id'));
-        Settings::set('clickup_auto_create', wva_str('clickup_auto_create') !== '' ? '1' : '');
         Settings::set('clickup_tags', wva_str('clickup_tags'));
         Settings::set('app_url', rtrim(wva_str('app_url'), '/'));
         Helpers::flash('ClickUp settings saved.', 'ok');
@@ -72,6 +69,7 @@ $clickUpToken    = Wva\ClickUp::token();
 $clickUpLists    = Wva\ClickUp::cachedLists();
 $clickUpDefault  = (string) Settings::get('clickup_default_list_id', '');
 $clickUpCachedAt = (string) Settings::get('clickup_list_cache_at', '');
+$secretsFile     = is_readable(WVA_ROOT . '/config/local.php') ? 'config/local.php' : '.env';
 
 $title  = 'Settings';
 $active = 'settings';
@@ -96,9 +94,9 @@ require WVA_ROOT . '/src/views/header.php';
                        value="<?= Settings::threshold() ?>">
             </div>
             <div class="field">
-                <label for="psi_api_key">PageSpeed Insights API key</label>
-                <input type="text" id="psi_api_key" name="psi_api_key" value="<?= Helpers::h($apiKey) ?>"
-                       placeholder="paste your API key" autocomplete="off">
+                <label>PageSpeed Insights API key</label>
+                <div class="small"><?= $apiKey === '' ? 'Not set' : Helpers::h(Wva\Doctor::mask($apiKey)) ?>
+                    <span class="muted">· read from <?= Helpers::h($secretsFile) ?>, not editable here</span></div>
             </div>
             <div><button class="btn primary" type="submit">Save</button></div>
         </div>
@@ -112,19 +110,20 @@ require WVA_ROOT . '/src/views/header.php';
 
 <h2>ClickUp</h2>
 <div class="card">
-    <p class="small muted" style="margin-top:0">Tasks this tool opens can be pushed into ClickUp.
-        Create a personal API token in ClickUp under <strong>Settings → Apps</strong>, paste it here,
-        then load your lists and choose where tasks should go. A site can override the default list
-        under its own settings, so each client can have its own list.</p>
+    <p class="small muted" style="margin-top:0">When a scan finishes you are offered the tasks it opened,
+        with every name and description editable, and you choose the list before anything is created.
+        The token lives in <?= Helpers::h($secretsFile) ?> — set <code>CLICKUP_TOKEN</code> there.
+        The list chosen below is the default; a site can override it under its own settings, so each
+        client can have its own list.</p>
 
     <form method="post">
         <?= Helpers::csrfField() ?>
         <input type="hidden" name="action" value="save_clickup">
         <div class="row">
             <div class="field">
-                <label for="clickup_token">API token</label>
-                <input type="text" id="clickup_token" name="clickup_token" autocomplete="off"
-                       value="<?= Helpers::h($clickUpToken) ?>" placeholder="pk_...">
+                <label>API token</label>
+                <div class="small"><?= $clickUpToken === '' ? 'Not set' : Helpers::h(Wva\Doctor::mask($clickUpToken)) ?>
+                    <span class="muted">· read from <?= Helpers::h($secretsFile) ?>, not editable here</span></div>
             </div>
             <div class="field">
                 <label for="clickup_default_list_id">Default list</label>
@@ -150,14 +149,6 @@ require WVA_ROOT . '/src/views/header.php';
                 <input type="text" id="app_url" name="app_url"
                        value="<?= Helpers::h((string) Settings::get('app_url', '')) ?>"
                        placeholder="https://audit.internal.example">
-            </div>
-            <div class="field">
-                <label>Automatic</label>
-                <label class="choice">
-                    <input type="checkbox" name="clickup_auto_create" value="1" style="width:auto"
-                        <?= Wva\ClickUpSync::autoCreateEnabled() ? 'checked' : '' ?>>
-                    Create a ClickUp task automatically whenever a page drops below target
-                </label>
             </div>
             <div><button class="btn primary" type="submit">Save</button></div>
         </div>

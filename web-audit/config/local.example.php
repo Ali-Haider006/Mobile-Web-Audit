@@ -13,6 +13,9 @@ return [
 
     'psi_api_key' => '',
 
+    // ClickUp personal API token (ClickUp -> Settings -> Apps).
+    'clickup_token' => '',
+
     // Required once this is reachable from the internet.
     'app_password' => '',
 

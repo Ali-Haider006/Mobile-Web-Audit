@@ -42,8 +42,27 @@ final class Settings
         return $value > 0 && $value <= 100 ? $value : 80;
     }
 
+    /**
+     * Secrets are read from .env / config/local.php, never written or edited
+     * through the UI. The settings table is still consulted as a fallback so
+     * an install that saved the key before this change keeps working - Doctor
+     * flags that case and asks for it to be moved.
+     */
     public static function apiKey(): string
     {
-        return trim((string) self::get('psi_api_key', ''));
+        $fromFile = trim((string) Config::get('psi_api_key', ''));
+        if ($fromFile !== '') {
+            return $fromFile;
+        }
+        return trim((string) self::storedOnly('psi_api_key'));
+    }
+
+    /** A value that exists only in the settings table, ignoring config files. */
+    public static function storedOnly(string $name): string
+    {
+        if (self::$cache === null) {
+            self::get($name);   // primes the cache
+        }
+        return trim((string) (self::$cache[$name] ?? ''));
     }
 }

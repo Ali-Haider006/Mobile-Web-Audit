@@ -33,9 +33,14 @@ final class ClickUp
         return self::token() !== '';
     }
 
+    /** From .env / config/local.php only - never stored or edited in the UI. */
     public static function token(): string
     {
-        return trim((string) Settings::get('clickup_token', ''));
+        $fromFile = trim((string) Config::get('clickup_token', ''));
+        if ($fromFile !== '') {
+            return $fromFile;
+        }
+        return Settings::storedOnly('clickup_token');
     }
 
     /**

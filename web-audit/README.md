@@ -28,7 +28,9 @@ drawn as inline SVG so it works behind a firewall.
 - MySQL 5.7+ or MariaDB 10.2+
 - A [PageSpeed Insights API key](https://developers.google.com/speed/docs/insights/v5/get-started)
   — optional but strongly recommended; without one Google rate-limits you to a
-  trickle. The free quota is 25,000 requests/day.
+  trickle. The free quota is 25,000 requests/day. It goes in `.env` as
+  `PSI_API_KEY`; like the ClickUp token it is never stored in the database or
+  editable through the UI.
 
 ## Install
 
@@ -112,29 +114,48 @@ The browser is only one way to drain the queue. For unattended runs:
 
 ## ClickUp
 
-Tasks this tool opens can be pushed into ClickUp.
+Tasks this tool opens can be created in ClickUp, after you have reviewed them.
+
+**Set up once**
 
 1. In ClickUp: **Settings → Apps → Generate** a personal API token (`pk_...`).
-   The token carries your own permissions, so it can only reach lists you can.
-2. In this tool: **Settings → ClickUp**, paste the token, **Save**, then press
-   **Load lists from ClickUp**. That walks Workspace → Space → Folder → List and
-   caches the result, so the dropdowns are real list names rather than IDs you
-   have to look up. Press it again after adding lists in ClickUp.
-3. Choose a **default list**, and optionally a different list per site under
+   It carries your own permissions, so it can only reach lists you can.
+2. Put it in `.env` as `CLICKUP_TOKEN` (or `clickup_token` in
+   `config/local.php`). Tokens are never stored in the database and cannot be
+   entered through the UI — Settings only shows a masked value and where it was
+   read from.
+3. In **Settings → ClickUp**, press **Load lists from ClickUp**. That walks
+   Workspace → Space → Folder → List and caches the result, so lists are picked
+   by name rather than by an ID you had to look up. Press it again after adding
+   lists in ClickUp.
+4. Choose a **default list**, and optionally a different list per site under
    **site settings** — that is how one workspace holds a list per client.
 
-Pushing is **manual by default**: each task gets a *Send to ClickUp* button, and
-once sent the button becomes a link to the ClickUp task. Tick *Create a ClickUp
-task automatically* in Settings to have every newly opened task pushed as soon
-as it opens.
+**The flow after a scan**
 
-The ClickUp task carries the score against target, the page URL, the failing
-metrics and Lighthouse's biggest wins, with priority mapped from ours
+When a scan finishes, the progress screen offers *Create ClickUp tasks (N)* for
+the pages that came back below target. That opens a review screen where you:
+
+- pick the **list** (pre-selected from the site's setting, or the default)
+- **untick** anything you do not want
+- **edit** each task's name, markdown description and priority
+
+Nothing reaches ClickUp until you press **Create**. Each result is reported
+separately, so a partial failure is visible and the rest still go through.
+Edits apply to the ClickUp task only — this tool keeps its own audit detail,
+which it rewrites on the next scan.
+
+A single task can be sent the same way from **Tasks → Review & send to
+ClickUp**. A task already in ClickUp shows a link instead and is never sent
+twice, so re-running the review after a failure is safe.
+
+The generated description carries the score against target, the page URL, the
+failing metrics and Lighthouse's biggest wins, with priority mapped from ours
 (critical → Urgent, high → High). Set **This tool's URL** in Settings and it
 also links back to the page's history here.
 
 A ClickUp failure never breaks an audit: the error is recorded against the task
-and shown next to the button, and the audit finishes regardless.
+and shown on the review screen, and the scan finishes regardless.
 
 ## How scoring and tasks work
 

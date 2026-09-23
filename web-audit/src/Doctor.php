@@ -66,6 +66,7 @@ final class Doctor
         // ---- Config --------------------------------------------------------
         $envPath   = WVA_ROOT . '/.env';
         $localPath = WVA_ROOT . '/config/local.php';
+        $settingsFileName = is_readable($localPath) ? 'config/local.php' : '.env';
         $sources   = [];
         if (is_readable($localPath)) {
             $sources[] = 'config/local.php';
@@ -80,17 +81,34 @@ final class Doctor
 
         // Name the file the operator actually used, not the one we happen to
         // document - "check .env" is useless advice to someone using local.php.
-        $settingsFile = is_readable($localPath) ? 'config/local.php' : '.env';
+        $settingsFile = $settingsFileName;
         $isLocal      = $settingsFile === 'config/local.php';
         $keyName      = static fn (string $env, string $local): string => $isLocal ? $local : $env;
 
-        $key = trim((string) Config::get('psi_api_key', ''));
-        if ($key === '') {
-            $add($checks, 'Config', self::WARN, 'PageSpeed API key', 'not set',
-                'Scans still run, but Google rate-limits unkeyed requests hard. Add PSI_API_KEY to .env, or set it on the Settings screen.');
-        } else {
-            $add($checks, 'Config', self::OK, 'PageSpeed API key',
-                substr($key, 0, 6) . str_repeat('*', max(0, strlen($key) - 6)));
+        // Secrets are reported by source, never echoed in full.
+        foreach ([
+            ['label' => 'PageSpeed API key', 'key' => 'psi_api_key', 'env' => 'PSI_API_KEY',
+             'missing' => 'Scans still run, but Google rate-limits unkeyed requests hard. Add PSI_API_KEY to ' . $settingsFileName . '.'],
+            ['label' => 'ClickUp API token', 'key' => 'clickup_token', 'env' => 'CLICKUP_TOKEN',
+             'missing' => 'Optional. Without it the ClickUp integration stays off. Add CLICKUP_TOKEN to ' . $settingsFileName . ' to turn it on.'],
+        ] as $secret) {
+            $fromFile   = trim((string) Config::get($secret['key'], ''));
+            $fromDb     = Settings::storedOnly($secret['key']);
+
+            if ($fromFile !== '') {
+                $add($checks, 'Config', self::OK, $secret['label'],
+                    self::mask($fromFile) . ' (from ' . $settingsFileName . ')');
+                if ($fromDb !== '') {
+                    $add($checks, 'Config', self::WARN, $secret['label'] . ' also in the database',
+                        'a copy is stored in the settings table',
+                        'The file value is the one in use. Delete the "' . $secret['key'] . '" row from the settings table so the secret is not kept in two places.');
+                }
+            } elseif ($fromDb !== '') {
+                $add($checks, 'Config', self::WARN, $secret['label'], self::mask($fromDb) . ' (from the database)',
+                    'Secrets belong in ' . $settingsFileName . ' now. Add ' . $secret['env'] . ' there, then delete the "' . $secret['key'] . '" row from the settings table.');
+            } else {
+                $add($checks, 'Config', self::WARN, $secret['label'], 'not set', $secret['missing']);
+            }
         }
 
         // A public deployment with no login is the one thing that must not ship.
@@ -180,6 +198,15 @@ final class Doctor
         }
 
         return $checks;
+    }
+
+    /** Show enough of a secret to recognise it, never enough to use it. */
+    public static function mask(string $secret): string
+    {
+        if (strlen($secret) <= 8) {
+            return str_repeat('*', strlen($secret));
+        }
+        return substr($secret, 0, 6) . str_repeat('*', min(18, strlen($secret) - 6));
     }
 
     /** @param array<int,array<string,string>> $checks */

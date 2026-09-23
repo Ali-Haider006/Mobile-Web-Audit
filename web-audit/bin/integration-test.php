@@ -229,7 +229,6 @@ check('columns migrated in', Wva\Migrations::pending(), []);
 $savedToken   = (string) Settings::get('clickup_token', '');
 $savedListId  = (string) Settings::get('clickup_default_list_id', '');
 $savedAppUrl  = (string) Settings::get('app_url', '');
-$savedAuto    = (string) Settings::get('clickup_auto_create', '');
 
 Settings::set('clickup_token', '');
 check('not configured without a token', ClickUp::configured(), false);
@@ -240,11 +239,6 @@ Settings::set('clickup_default_list_id', '900100');
 check('falls back to the global list', ClickUpSync::listIdFor(['clickup_list_id' => null]), '900100');
 check('site override wins', ClickUpSync::listIdFor(['clickup_list_id' => '777']), '777');
 check('blank override falls back', ClickUpSync::listIdFor(['clickup_list_id' => '  ']), '900100');
-
-check('auto-create is off by default', ClickUpSync::autoCreateEnabled(), false);
-Settings::set('clickup_auto_create', '1');
-check('auto-create can be turned on', ClickUpSync::autoCreateEnabled(), true);
-Settings::set('clickup_auto_create', '');
 
 $sample = [
     'id' => 1, 'site_id' => $siteId, 'page_id' => 1, 'title' => 'Mobile Core Web Vitals below 80 (scored 25) - /services',
@@ -257,6 +251,18 @@ Settings::set('app_url', 'https://audit.internal.example/');
 $payload = ClickUpSync::payload($sample);
 check('payload carries the title', str_contains((string) $payload['name'], 'scored 25'), true);
 check('payload priority is urgent', $payload['priority'], 1);
+
+// The review screen's edits must reach ClickUp instead of the generated text.
+$edited = ClickUpSync::payload($sample, [
+    'title'       => 'Hero image is 3 MB on mobile',
+    'description' => 'Ask the designer for a 200 KB WebP.',
+    'priority'    => 'normal',
+]);
+check('edited title wins', $edited['name'], 'Hero image is 3 MB on mobile');
+check('edited body wins', $edited['markdown_description'], 'Ask the designer for a 200 KB WebP.');
+check('edited priority wins', $edited['priority'], 3);
+$blank = ClickUpSync::payload($sample, ['title' => '   ', 'description' => '']);
+check('blank edits fall back to generated', $blank['name'], $sample['title']);
 check('payload has tags', is_array($payload['tags'] ?? null), true);
 $body = (string) $payload['markdown_description'];
 check('body states the score', str_contains($body, '**Mobile performance 25**'), true);
@@ -294,8 +300,34 @@ Database::run('UPDATE tasks SET clickup_task_id = NULL, clickup_task_url = NULL 
 Settings::set('clickup_token', $savedToken);
 Settings::set('clickup_default_list_id', $savedListId);
 Settings::set('app_url', $savedAppUrl);
-Settings::set('clickup_auto_create', $savedAuto);
 check('settings restored', (string) Settings::get('clickup_token', ''), $savedToken);
+
+step('Post-audit review candidates');
+// Tasks::forRun is what the review screen offers after a scan.
+$reviewRun = Runs::create($siteId, [Pages::find($pageId)], 'selected');
+$reviewAuditId = Audits::insert($siteId, $pageId, $reviewRun, PageSpeed::parse(payload(31, '2026-09-22T10:00:00.000Z')) + ['status' => 'ok']);
+Pages::recordAuditResult($pageId, 31, '2026-09-22 10:00:00');
+[$reviewTaskId] = Tasks::openOrRefresh(Pages::find($pageId), ['performance_score' => 31, 'fetched_at' => '2026-09-22 10:00:00'], $reviewAuditId, 80);
+
+$candidates = Tasks::forRun($reviewRun);
+check('run offers its task for review', count($candidates), 1);
+check('candidate carries the page url', str_contains((string) $candidates[0]['url'], 'integration-test.invalid'), true);
+check('candidate carries the site list', array_key_exists('clickup_list_id', $candidates[0]), true);
+
+Tasks::recordClickUp($reviewTaskId, 'cu-review-1', 'https://app.clickup.com/t/cu-review-1');
+check('already-sent tasks drop out of the review', Tasks::forRun($reviewRun), []);
+check('but are still listed when asked for', count(Tasks::forRun($reviewRun, false)), 1);
+Database::run('UPDATE tasks SET clickup_task_id = NULL, clickup_task_url = NULL WHERE id = ?', [$reviewTaskId]);
+
+step('Secrets come from config, not the database');
+$savedPsi = (string) Settings::get('psi_api_key', '');
+Settings::set('psi_api_key', 'db-value-should-lose');
+// Config (.env / local.php) has no key in this test run, so the stored one is
+// the documented fallback; when a file value exists it must win.
+check('stored key is the fallback', Settings::apiKey(), 'db-value-should-lose');
+check('mask hides the secret', str_contains(Wva\Doctor::mask('pk_1234567890abcdef'), '890abcdef'), false);
+check('mask keeps a recognisable prefix', str_starts_with(Wva\Doctor::mask('pk_1234567890abcdef'), 'pk_123'), true);
+Settings::set('psi_api_key', $savedPsi);
 
 step('Settings round-trip');
 Settings::set('score_threshold', '75');

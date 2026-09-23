@@ -26,18 +26,17 @@ final class ClickUpSync
         return trim((string) Settings::get('clickup_default_list_id', ''));
     }
 
-    public static function autoCreateEnabled(): bool
-    {
-        return (string) Settings::get('clickup_auto_create', '') === '1';
-    }
-
     /**
      * Push a task. Never throws - a ClickUp outage must not break an audit, so
      * the failure is recorded on the task and reported to the caller.
      *
+     * $listId overrides where it goes; $overrides carries the operator's edits
+     * to title / description / priority from the review screen.
+     *
+     * @param array{title?:string,description?:string,priority?:string} $overrides
      * @return array{ok:bool, url:?string, error:?string, skipped:?string}
      */
-    public static function push(int $taskId): array
+    public static function push(int $taskId, ?string $listId = null, array $overrides = []): array
     {
         $task = Tasks::find($taskId);
         if ($task === null) {
@@ -51,13 +50,13 @@ final class ClickUpSync
         }
 
         $site   = Sites::find((int) $task['site_id']);
-        $listId = self::listIdFor($site);
+        $listId = $listId !== null && trim($listId) !== '' ? trim($listId) : self::listIdFor($site);
         if ($listId === '') {
             return ['ok' => false, 'url' => null, 'error' => null, 'skipped' => 'no ClickUp list chosen for this site'];
         }
 
         try {
-            $created = ClickUp::createTask($listId, self::payload($task));
+            $created = ClickUp::createTask($listId, self::payload($task, $overrides));
             Tasks::recordClickUp($taskId, $created['id'], $created['url']);
             return ['ok' => true, 'url' => $created['url'], 'error' => null, 'skipped' => null];
         } catch (Throwable $e) {
@@ -66,24 +65,27 @@ final class ClickUpSync
         }
     }
 
-    /** Called when a task opens. Silent by design - the audit comes first. */
-    public static function pushIfAuto(int $taskId): void
-    {
-        if (self::autoCreateEnabled()) {
-            self::push($taskId);
-        }
-    }
-
     /**
      * @param array<string,mixed> $task
+     * @param array{title?:string,description?:string,priority?:string} $overrides
      * @return array<string,mixed>
      */
-    public static function payload(array $task): array
+    public static function payload(array $task, array $overrides = []): array
     {
+        $title = trim((string) ($overrides['title'] ?? '')) !== ''
+            ? (string) $overrides['title']
+            : (string) $task['title'];
+        $body = trim((string) ($overrides['description'] ?? '')) !== ''
+            ? (string) $overrides['description']
+            : self::description($task);
+        $priority = trim((string) ($overrides['priority'] ?? '')) !== ''
+            ? (string) $overrides['priority']
+            : (string) $task['priority'];
+
         $fields = [
-            'name'                 => substr((string) $task['title'], 0, 255),
-            'markdown_description' => self::description($task),
-            'priority'             => ClickUp::priorityFor((string) $task['priority']),
+            'name'                 => substr($title, 0, 255),
+            'markdown_description' => $body,
+            'priority'             => ClickUp::priorityFor($priority),
         ];
 
         $tags = array_values(array_filter(array_map(

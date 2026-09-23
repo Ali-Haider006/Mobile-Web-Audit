@@ -166,6 +166,11 @@ check('band poor', Helpers::scoreBand(25), 'poor');
 check('band none', Helpers::scoreBand(null), 'none');
 
 
+echo "Secret masking\n";
+check('short secrets are fully hidden', Wva\Doctor::mask('abc'), '***');
+check('long secrets keep 6 characters', str_starts_with(Wva\Doctor::mask('pk_98765_SECRETVALUE'), 'pk_987'), true);
+check('and reveal nothing after that', str_contains(Wva\Doctor::mask('pk_98765_SECRETVALUE'), 'SECRET'), false);
+
 echo "ClickUp payload parsing\n";
 
 use Wva\ClickUp;

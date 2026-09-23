@@ -73,6 +73,27 @@ final class Tasks
         return Database::all($sql, $params);
     }
 
+    /**
+     * Tasks this scan run opened or refreshed - the candidates the review
+     * screen offers after an audit finishes.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public static function forRun(int $runId, bool $unsyncedOnly = true): array
+    {
+        $sql = 'SELECT t.*, p.url, p.path, s.name AS site_name, s.clickup_list_id
+                FROM tasks t
+                INNER JOIN pages p ON p.id = t.page_id
+                INNER JOIN sites s ON s.id = t.site_id
+                WHERE t.audit_id IN (SELECT a.id FROM audits a WHERE a.run_id = ?)';
+        if ($unsyncedOnly) {
+            $sql .= " AND (t.clickup_task_id IS NULL OR t.clickup_task_id = '')";
+        }
+        $sql .= ' ORDER BY t.latest_score ASC, t.id';
+
+        return Database::all($sql, [$runId]);
+    }
+
     /** @return array<int,array<string,mixed>> */
     public static function forPage(int $pageId): array
     {
