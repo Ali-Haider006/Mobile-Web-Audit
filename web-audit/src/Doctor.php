@@ -145,7 +145,12 @@ final class Doctor
             try {
                 $present = array_map('strval', $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN));
                 $missing = array_values(array_diff(self::TABLES, $present));
-                if ($missing === []) {
+                $pendingColumns = Migrations::pending();
+                if ($missing === [] && $pendingColumns !== []) {
+                    $add($checks, 'Database', self::FAIL, 'Schema out of date',
+                        'missing columns: ' . implode(', ', $pendingColumns),
+                        'The code is newer than the database. Run php bin/install.php, or press "Install the schema" below - both only add what is missing and leave your data alone.');
+                } elseif ($missing === []) {
                     $counts = Database::one(
                         'SELECT (SELECT COUNT(*) FROM sites) AS sites,
                                 (SELECT COUNT(*) FROM pages) AS pages,

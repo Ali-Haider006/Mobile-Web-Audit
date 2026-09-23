@@ -49,6 +49,7 @@ final class Migrations
                 }
                 // Identifiers come from the hard-coded list above, never input.
                 Database::run('ALTER TABLE `' . $table . '` ADD COLUMN `' . $column . '` ' . $change['definition']);
+                self::forgetCache();
                 $applied[] = $table . '.' . $column;
             } catch (\Throwable $e) {
                 $errors[] = $table . '.' . $column . ': ' . $e->getMessage();
@@ -58,22 +59,53 @@ final class Migrations
         return ['applied' => $applied, 'skipped' => $skipped, 'errors' => $errors];
     }
 
+    /** @var array<string,array<string,bool>>|null table => column => true */
+    private static ?array $schemaCache = null;
+
+    /**
+     * Every column of the tables we care about, in one query. pending() runs on
+     * every page load, so this must not be five information_schema round trips.
+     *
+     * @return array<string,array<string,bool>>
+     */
+    private static function existingColumns(): array
+    {
+        if (self::$schemaCache !== null) {
+            return self::$schemaCache;
+        }
+
+        $tables = array_values(array_unique(array_column(self::columns(), 'table')));
+        if ($tables === []) {
+            return self::$schemaCache = [];
+        }
+        $placeholders = implode(',', array_fill(0, count($tables), '?'));
+
+        $map = [];
+        foreach (Database::all(
+            'SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN (' . $placeholders . ')',
+            $tables
+        ) as $row) {
+            $map[(string) $row['TABLE_NAME']][(string) $row['COLUMN_NAME']] = true;
+        }
+
+        return self::$schemaCache = $map;
+    }
+
+    /** Call after altering anything, so the next check re-reads the schema. */
+    public static function forgetCache(): void
+    {
+        self::$schemaCache = null;
+    }
+
     public static function tableExists(string $table): bool
     {
-        return (int) Database::value(
-            'SELECT COUNT(*) FROM information_schema.TABLES
-             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?',
-            [$table]
-        ) > 0;
+        return isset(self::existingColumns()[$table]);
     }
 
     public static function columnExists(string $table, string $column): bool
     {
-        return (int) Database::value(
-            'SELECT COUNT(*) FROM information_schema.COLUMNS
-             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?',
-            [$table, $column]
-        ) > 0;
+        return isset(self::existingColumns()[$table][$column]);
     }
 
     /** @return array<int,string> columns still missing after a run */

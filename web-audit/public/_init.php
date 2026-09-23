@@ -150,6 +150,19 @@ if (!function_exists('wva_require_schema')) {
         }
         try {
             Database::value('SELECT 1 FROM settings LIMIT 1');
+
+            // A pulled-but-not-installed upgrade would otherwise surface as an
+            // unknown-column error from whichever page uses the new column first.
+            $pending = Wva\Migrations::pending();
+            if ($pending !== []) {
+                wva_fail(
+                    'Database needs updating',
+                    "This copy of the code expects columns the database does not have yet:\n\n  "
+                    . implode("\n  ", $pending)
+                    . "\n\nRun  php bin/install.php  from the project folder, or open setup.php and press "
+                    . '"Install the schema". Both only add what is missing and leave your data alone.'
+                );
+            }
         } catch (Throwable $e) {
             wva_fail(
                 'Database not ready',
