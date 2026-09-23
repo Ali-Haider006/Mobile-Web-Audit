@@ -248,6 +248,82 @@ final class ClickUp
         return is_array($decoded) ? $decoded : [];
     }
 
+    /**
+     * Everyone in the workspaces the token can see, for the assignee dropdown.
+     * GET /team embeds members, so this is one request per token.
+     *
+     * @return array<int,array{id:int,name:string,email:string}>
+     */
+    public static function fetchMembers(): array
+    {
+        return self::parseMembers(self::get('/team'));
+    }
+
+    /**
+     * Pure, so it can be tested against a saved payload.
+     *
+     * @param array<string,mixed> $payload
+     * @return array<int,array{id:int,name:string,email:string}>
+     */
+    public static function parseMembers(array $payload): array
+    {
+        $people = [];
+
+        foreach (self::parseNamed($payload, 'teams') as $team) {
+            foreach ((array) ($team['members'] ?? []) as $member) {
+                $user = is_array($member) ? ($member['user'] ?? $member) : null;
+                if (!is_array($user) || !isset($user['id'])) {
+                    continue;
+                }
+                $id = (int) $user['id'];
+                if ($id === 0) {
+                    continue;
+                }
+                $name = trim((string) ($user['username'] ?? ''));
+                $mail = trim((string) ($user['email'] ?? ''));
+                // Someone invited but not yet signed up has no username.
+                $people[$id] = [
+                    'id'    => $id,
+                    'name'  => $name !== '' ? $name : ($mail !== '' ? $mail : 'User ' . $id),
+                    'email' => $mail,
+                ];
+            }
+        }
+
+        usort($people, static fn (array $a, array $b): int => strcasecmp($a['name'], $b['name']));
+
+        return array_values($people);
+    }
+
+    /** @return array<int,array<string,mixed>> */
+    public static function cachedMembers(): array
+    {
+        $raw = (string) Settings::get('clickup_member_cache', '');
+        if ($raw === '') {
+            return [];
+        }
+        $decoded = json_decode($raw, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    /** @return array<int,array<string,mixed>> */
+    public static function refreshMembers(): array
+    {
+        $people = self::fetchMembers();
+        Settings::set('clickup_member_cache', (string) json_encode($people, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        return $people;
+    }
+
+    public static function memberName(int $id): string
+    {
+        foreach (self::cachedMembers() as $member) {
+            if ((int) ($member['id'] ?? 0) === $id) {
+                return (string) ($member['name'] ?? $id);
+            }
+        }
+        return (string) $id;
+    }
+
     /** @return array<int,array<string,mixed>> */
     public static function refreshLists(): array
     {

@@ -329,6 +329,54 @@ check('mask hides the secret', str_contains(Wva\Doctor::mask('pk_1234567890abcde
 check('mask keeps a recognisable prefix', str_starts_with(Wva\Doctor::mask('pk_1234567890abcdef'), 'pk_123'), true);
 Settings::set('psi_api_key', $savedPsi);
 
+step('Public share links');
+use Wva\ShareLink;
+
+$link = ShareLink::create(ShareLink::KIND_PAGE, $pageId, 'test page');
+check('token is 32 hex chars', (bool) preg_match('/^[a-f0-9]{32}$/', (string) $link['token']), true);
+check('resolves while live', ShareLink::resolve((string) $link['token'])['id'] ?? null, (int) $link['id']);
+check('ensure reuses the live link', (int) ShareLink::ensure(ShareLink::KIND_PAGE, $pageId)['id'], (int) $link['id']);
+
+// A malformed token must never reach the database as a query value.
+check('rejects a short token', ShareLink::byToken('abc'), null);
+check('rejects sql-ish input', ShareLink::byToken("' OR 1=1 --"), null);
+check('rejects an unknown but well-formed token', ShareLink::resolve(str_repeat('a', 32)), null);
+
+ShareLink::recordView((int) $link['id']);
+check('views are counted', (int) ShareLink::byToken((string) $link['token'])['views'], 1);
+
+ShareLink::revoke((int) $link['id']);
+check('revoked links stop resolving', ShareLink::resolve((string) $link['token']), null);
+check('revoked links are not reused', (int) ShareLink::ensure(ShareLink::KIND_PAGE, $pageId)['id'] !== (int) $link['id'], true);
+
+// A target id this test owns, so a link created elsewhere cannot affect it.
+$expiryTarget = 987654;
+$expired = ShareLink::create(ShareLink::KIND_RUN, $expiryTarget, 'old', '2020-01-01 00:00:00');
+check('expired links stop resolving', ShareLink::resolve((string) $expired['token']), null);
+check('and are not offered as live', ShareLink::liveFor(ShareLink::KIND_RUN, $expiryTarget), null);
+Database::run('DELETE FROM share_links WHERE target_id = ? AND kind = ?', [$expiryTarget, ShareLink::KIND_RUN]);
+
+Settings::set('app_url', 'https://audit.internal.example');
+check('url uses app_url', str_starts_with(ShareLink::url('abc'), 'https://audit.internal.example/share.php?t='), true);
+Settings::set('app_url', '');
+// Links this step created for a real page are removed with the test site at
+// the end, but drop them now so a re-run starts from the same state.
+Database::run('DELETE FROM share_links WHERE kind = ? AND target_id = ?', [ShareLink::KIND_PAGE, $pageId]);
+
+step('Assignee and public link in the ClickUp payload');
+$withWho = ClickUpSync::payload($sample, ['assignee' => 502]);
+check('assignee is sent as a list', $withWho['assignees'], [502]);
+check('no assignee key when nobody chosen', array_key_exists('assignees', ClickUpSync::payload($sample, ['assignee' => 0])), false);
+
+Settings::set('clickup_public_link', '1');
+Settings::set('app_url', 'https://audit.internal.example');
+$sample['page_id'] = $pageId;
+check('description carries a share link', str_contains(ClickUpSync::description($sample), '/share.php?t='), true);
+Settings::set('clickup_public_link', '0');
+check('and omits it when turned off', str_contains(ClickUpSync::description($sample), '/share.php?t='), false);
+Settings::set('clickup_public_link', '1');
+Settings::set('app_url', '');
+
 step('Settings round-trip');
 Settings::set('score_threshold', '75');
 check('threshold from DB', Settings::threshold(), 75);

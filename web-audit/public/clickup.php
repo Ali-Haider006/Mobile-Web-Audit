@@ -52,12 +52,14 @@ if (wva_is_post()) {
         $titles   = (array) ($_POST['title'] ?? []);
         $bodies   = (array) ($_POST['description'] ?? []);
         $prios    = (array) ($_POST['priority'] ?? []);
+        $assignees = (array) ($_POST['assignee'] ?? []);
 
         foreach ($selected as $id) {
             $result = ClickUpSync::push($id, $listId, [
                 'title'       => (string) ($titles[$id] ?? ''),
                 'description' => (string) ($bodies[$id] ?? ''),
                 'priority'    => (string) ($prios[$id] ?? ''),
+                'assignee'    => (int) ($assignees[$id] ?? 0),
             ]);
             $task = Tasks::find($id);
             $results[] = $result + ['task' => $task['title'] ?? ('#' . $id)];
@@ -75,6 +77,8 @@ $site       = $run !== null ? Sites::find((int) $run['site_id'])
     : ($candidates !== [] ? Sites::find((int) $candidates[0]['site_id']) : null);
 
 $lists         = ClickUp::cachedLists();
+$members       = ClickUp::cachedMembers();
+$defaultMember = (string) Wva\Settings::get('clickup_default_assignee', '');
 $suggestedList = ClickUpSync::listIdFor($site);
 
 $title  = 'Create ClickUp tasks';
@@ -204,6 +208,21 @@ require WVA_ROOT . '/src/views/header.php';
                             <option value="<?= $value ?>" <?= (string) $task['priority'] === $value ? 'selected' : '' ?>><?= $label ?></option>
                         <?php endforeach; ?>
                     </select>
+                </div>
+                <div class="field" style="max-width:280px">
+                    <label for="who-<?= $id ?>">Assign to</label>
+                    <select id="who-<?= $id ?>" name="assignee[<?= $id ?>]">
+                        <option value="0">Nobody</option>
+                        <?php foreach ($members as $member): ?>
+                            <option value="<?= (int) $member['id'] ?>"
+                                <?= $defaultMember === (string) $member['id'] ? 'selected' : '' ?>>
+                                <?= Helpers::h($member['name']) ?><?= !empty($member['email']) ? ' · ' . Helpers::h($member['email']) : '' ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <?php if ($members === []): ?>
+                        <div class="small muted" style="margin-top:6px">No people loaded — press "Load lists &amp; people" in Settings.</div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>

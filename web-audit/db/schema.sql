@@ -179,6 +179,25 @@ CREATE TABLE IF NOT EXISTS tasks (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------------
+-- Public share links: unguessable, revocable, read-only report URLs
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS share_links (
+    id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    token          CHAR(32)     NOT NULL,
+    kind           ENUM('page','run') NOT NULL,
+    target_id      INT UNSIGNED NOT NULL,
+    label          VARCHAR(190) DEFAULT NULL,
+    created_at     DATETIME     NOT NULL,
+    expires_at     DATETIME     DEFAULT NULL,
+    revoked_at     DATETIME     DEFAULT NULL,
+    views          INT UNSIGNED NOT NULL DEFAULT 0,
+    last_viewed_at DATETIME     DEFAULT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uniq_share_token (token),
+    KEY idx_share_target (kind, target_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------------
 -- Key/value settings editable from the UI (falls back to .env)
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS settings (

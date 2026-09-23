@@ -27,6 +27,33 @@ final class Migrations
     }
 
     /**
+     * Tables added after the first release. schema.sql carries these too, for
+     * fresh installs; this is what upgrades an existing database.
+     *
+     * @return array<string,string> table => CREATE statement
+     */
+    public static function tables(): array
+    {
+        return [
+            'share_links' => "CREATE TABLE IF NOT EXISTS share_links (
+                id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                token          CHAR(32)     NOT NULL,
+                kind           ENUM('page','run') NOT NULL,
+                target_id      INT UNSIGNED NOT NULL,
+                label          VARCHAR(190) DEFAULT NULL,
+                created_at     DATETIME     NOT NULL,
+                expires_at     DATETIME     DEFAULT NULL,
+                revoked_at     DATETIME     DEFAULT NULL,
+                views          INT UNSIGNED NOT NULL DEFAULT 0,
+                last_viewed_at DATETIME     DEFAULT NULL,
+                PRIMARY KEY (id),
+                UNIQUE KEY uniq_share_token (token),
+                KEY idx_share_target (kind, target_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        ];
+    }
+
+    /**
      * @return array{applied:array<int,string>, skipped:int, errors:array<int,string>}
      */
     public static function run(): array
@@ -34,6 +61,20 @@ final class Migrations
         $applied = [];
         $skipped = 0;
         $errors  = [];
+
+        foreach (self::tables() as $table => $statement) {
+            try {
+                if (self::tableExists($table)) {
+                    $skipped++;
+                    continue;
+                }
+                Database::run($statement);
+                self::forgetCache();
+                $applied[] = 'table ' . $table;
+            } catch (\Throwable $e) {
+                $errors[] = 'table ' . $table . ': ' . $e->getMessage();
+            }
+        }
 
         foreach (self::columns() as $change) {
             $table  = $change['table'];
@@ -74,7 +115,10 @@ final class Migrations
             return self::$schemaCache;
         }
 
-        $tables = array_values(array_unique(array_column(self::columns(), 'table')));
+        $tables = array_values(array_unique(array_merge(
+            array_column(self::columns(), 'table'),
+            array_keys(self::tables())
+        )));
         if ($tables === []) {
             return self::$schemaCache = [];
         }
@@ -108,10 +152,15 @@ final class Migrations
         return isset(self::existingColumns()[$table][$column]);
     }
 
-    /** @return array<int,string> columns still missing after a run */
+    /** @return array<int,string> tables and columns still missing after a run */
     public static function pending(): array
     {
         $missing = [];
+        foreach (array_keys(self::tables()) as $table) {
+            if (!self::tableExists($table)) {
+                $missing[] = 'table ' . $table;
+            }
+        }
         foreach (self::columns() as $change) {
             if (self::tableExists($change['table']) && !self::columnExists($change['table'], $change['column'])) {
                 $missing[] = $change['table'] . '.' . $change['column'];

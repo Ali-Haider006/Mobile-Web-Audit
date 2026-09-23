@@ -24,6 +24,8 @@ if (wva_is_post()) {
 
     if ($action === 'save_clickup') {
         Settings::set('clickup_default_list_id', wva_str('clickup_default_list_id'));
+        Settings::set('clickup_default_assignee', wva_str('clickup_default_assignee'));
+        Settings::set('clickup_public_link', wva_str('clickup_public_link') !== '' ? '1' : '0');
         Settings::set('clickup_tags', wva_str('clickup_tags'));
         Settings::set('app_url', rtrim(wva_str('app_url'), '/'));
         Helpers::flash('ClickUp settings saved.', 'ok');
@@ -32,8 +34,12 @@ if (wva_is_post()) {
 
     if ($action === 'refresh_lists') {
         try {
-            $lists = Wva\ClickUp::refreshLists();
-            Helpers::flash('Loaded ' . count($lists) . ' list(s) from ClickUp.', $lists === [] ? 'warn' : 'ok');
+            $lists  = Wva\ClickUp::refreshLists();
+            $people = Wva\ClickUp::refreshMembers();
+            Helpers::flash(
+                'Loaded ' . count($lists) . ' list(s) and ' . count($people) . ' person/people from ClickUp.',
+                $lists === [] ? 'warn' : 'ok'
+            );
         } catch (Throwable $e) {
             Helpers::flash($e->getMessage(), 'error');
         }
@@ -69,6 +75,7 @@ $clickUpToken    = Wva\ClickUp::token();
 $clickUpLists    = Wva\ClickUp::cachedLists();
 $clickUpDefault  = (string) Settings::get('clickup_default_list_id', '');
 $clickUpCachedAt = (string) Settings::get('clickup_list_cache_at', '');
+$clickUpMembers  = Wva\ClickUp::cachedMembers();
 $secretsFile     = is_readable(WVA_ROOT . '/config/local.php') ? 'config/local.php' : '.env';
 
 $title  = 'Settings';
@@ -145,10 +152,30 @@ require WVA_ROOT . '/src/views/header.php';
                        value="<?= Helpers::h((string) Settings::get('clickup_tags', 'core-web-vitals')) ?>">
             </div>
             <div class="field">
-                <label for="app_url">This tool's URL (for links back from ClickUp)</label>
+                <label for="clickup_default_assignee">Default assignee</label>
+                <select id="clickup_default_assignee" name="clickup_default_assignee">
+                    <option value="">Nobody</option>
+                    <?php foreach ($clickUpMembers as $member): ?>
+                        <option value="<?= (int) $member['id'] ?>"
+                            <?= (string) Settings::get('clickup_default_assignee', '') === (string) $member['id'] ? 'selected' : '' ?>>
+                            <?= Helpers::h($member['name']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="field">
+                <label for="app_url">This tool's URL (for share links and links back)</label>
                 <input type="text" id="app_url" name="app_url"
                        value="<?= Helpers::h((string) Settings::get('app_url', '')) ?>"
                        placeholder="https://audit.internal.example">
+            </div>
+            <div class="field">
+                <label>Public report link</label>
+                <label class="choice">
+                    <input type="checkbox" name="clickup_public_link" value="1"
+                        <?= Wva\ClickUpSync::publicLinksEnabled() ? 'checked' : '' ?>>
+                    Include a shareable read-only report link in each ClickUp task
+                </label>
             </div>
             <div><button class="btn primary" type="submit">Save</button></div>
         </div>
@@ -158,12 +185,12 @@ require WVA_ROOT . '/src/views/header.php';
         <?= Helpers::csrfField() ?>
         <input type="hidden" name="action" value="refresh_lists">
         <div class="actions">
-            <button class="btn" type="submit">Load lists from ClickUp</button>
+            <button class="btn" type="submit">Load lists &amp; people from ClickUp</button>
             <span class="small muted">
                 <?php if ($clickUpLists === []): ?>
                     No lists loaded yet. Save the token first, then press this.
                 <?php else: ?>
-                    <?= count($clickUpLists) ?> list(s) cached<?= $clickUpCachedAt !== '' ? ', refreshed ' . Helpers::h(Helpers::ago($clickUpCachedAt)) : '' ?>.
+                    <?= count($clickUpLists) ?> list(s) and <?= count($clickUpMembers) ?> person/people cached<?= $clickUpCachedAt !== '' ? ', refreshed ' . Helpers::h(Helpers::ago($clickUpCachedAt)) : '' ?>.
                     Press again after adding lists in ClickUp.
                 <?php endif; ?>
             </span>

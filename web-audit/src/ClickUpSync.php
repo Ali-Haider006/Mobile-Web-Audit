@@ -17,6 +17,12 @@ use Wva\Repo\Tasks;
 final class ClickUpSync
 {
     /** The list a given site's tasks belong in, or '' when none is chosen. */
+    /** Include a public report link in ClickUp tasks. On unless turned off. */
+    public static function publicLinksEnabled(): bool
+    {
+        return (string) Settings::get('clickup_public_link', '1') === '1';
+    }
+
     public static function listIdFor(?array $site): string
     {
         $perSite = trim((string) ($site['clickup_list_id'] ?? ''));
@@ -58,6 +64,12 @@ final class ClickUpSync
         try {
             $created = ClickUp::createTask($listId, self::payload($task, $overrides));
             Tasks::recordClickUp($taskId, $created['id'], $created['url']);
+
+            // Mirror the assignee here so our task list shows who owns it.
+            $assignee = (int) ($overrides['assignee'] ?? 0);
+            if ($assignee > 0) {
+                Tasks::setAssignee($taskId, ClickUp::memberName($assignee));
+            }
             return ['ok' => true, 'url' => $created['url'], 'error' => null, 'skipped' => null];
         } catch (Throwable $e) {
             Tasks::recordClickUpError($taskId, $e->getMessage());
@@ -88,6 +100,11 @@ final class ClickUpSync
             'priority'             => ClickUp::priorityFor($priority),
         ];
 
+        $assignee = (int) ($overrides['assignee'] ?? 0);
+        if ($assignee > 0) {
+            $fields['assignees'] = [$assignee];
+        }
+
         $tags = array_values(array_filter(array_map(
             'trim',
             explode(',', (string) Settings::get('clickup_tags', 'core-web-vitals'))
@@ -117,9 +134,20 @@ final class ClickUpSync
         $lines[] = '- Site: ' . (string) ($task['site_name'] ?? '');
         $lines[] = '- Opened: ' . (string) $task['opened_at'] . ' UTC';
 
+        // A public report link, so whoever picks this up can see the numbers
+        // without an account here. Only if sharing is switched on.
+        if (self::publicLinksEnabled()) {
+            try {
+                $link = ShareLink::ensure(ShareLink::KIND_PAGE, (int) $task['page_id'], (string) ($task['url'] ?? ''));
+                $lines[] = '- Report: ' . ShareLink::url((string) $link['token']);
+            } catch (Throwable $e) {
+                // A share-link problem must not stop the task being created.
+            }
+        }
+
         $appUrl = rtrim((string) Settings::get('app_url', ''), '/');
         if ($appUrl !== '') {
-            $lines[] = '- History: ' . $appUrl . '/page.php?id=' . (int) $task['page_id'];
+            $lines[] = '- History (needs a login): ' . $appUrl . '/page.php?id=' . (int) $task['page_id'];
         }
 
         $details = trim((string) $task['details']);

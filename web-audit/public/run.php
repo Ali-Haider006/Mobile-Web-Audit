@@ -20,6 +20,16 @@ $site = Sites::find((int) $run['site_id']);
 
 if (wva_is_post()) {
     Helpers::checkCsrf();
+    if (wva_str('action') === 'share') {
+        Wva\ShareLink::ensure(Wva\ShareLink::KIND_RUN, $runId, 'Scan #' . $runId);
+        Helpers::flash('Public link ready for this scan.', 'ok');
+        Helpers::redirect('run.php?id=' . $runId);
+    }
+    if (wva_str('action') === 'revoke_share') {
+        Wva\ShareLink::revoke(wva_int('link_id'));
+        Helpers::flash('Public link revoked.', 'ok');
+        Helpers::redirect('run.php?id=' . $runId);
+    }
     if (wva_str('action') === 'cancel') {
         Runs::cancel($runId);
         Helpers::flash('Scan cancelled. Finished URLs keep their results.', 'ok');
@@ -34,6 +44,7 @@ $warning = AuditRunner::warnIfNoApiKey();
 // Tasks this scan opened that have not been sent to ClickUp yet.
 $clickUpCandidates = Wva\ClickUp::configured() ? Wva\Repo\Tasks::forRun($runId) : [];
 $scanFinished = (int) ($counts['remaining'] ?? 0) === 0;
+$shareLink = Wva\ShareLink::liveFor(Wva\ShareLink::KIND_RUN, $runId);
 
 $title  = 'Scan';
 $active = 'sites';
@@ -76,6 +87,47 @@ require WVA_ROOT . '/src/views/header.php';
         </div>
     </div>
 <?php endif; ?>
+
+<div class="card">
+    <?php if ($shareLink === null): ?>
+        <div class="actions">
+            <form method="post" class="inline">
+                <?= Helpers::csrfField() ?>
+                <input type="hidden" name="action" value="share">
+                <input type="hidden" name="id" value="<?= $runId ?>">
+                <button class="btn" type="submit">Create a public link for this scan</button>
+            </form>
+            <span class="small muted">A read-only page of these results, no login needed — for a client or a developer.</span>
+        </div>
+    <?php else: ?>
+        <div class="row">
+            <div class="field" style="flex:1 1 420px">
+                <label for="share-url">Public read-only link</label>
+                <input type="text" id="share-url" readonly onclick="this.select()"
+                       value="<?= Helpers::h(Wva\ShareLink::url((string) $shareLink['token'])) ?>">
+            </div>
+            <div class="actions">
+                <button class="btn small" type="button" id="copy-share">Copy</button>
+                <form method="post" class="inline" onsubmit="return confirm('Revoke this link?');">
+                    <?= Helpers::csrfField() ?>
+                    <input type="hidden" name="action" value="revoke_share">
+                    <input type="hidden" name="id" value="<?= $runId ?>">
+                    <input type="hidden" name="link_id" value="<?= (int) $shareLink['id'] ?>">
+                    <button class="btn small danger" type="submit">Revoke</button>
+                </form>
+            </div>
+        </div>
+        <div class="small muted" style="margin-top:8px">Viewed <?= (int) $shareLink['views'] ?> time(s).</div>
+        <script>
+        document.getElementById('copy-share').addEventListener('click', function () {
+            var field = document.getElementById('share-url');
+            field.select();
+            try { navigator.clipboard.writeText(field.value); } catch (e) { document.execCommand('copy'); }
+            this.textContent = 'Copied';
+        });
+        </script>
+    <?php endif; ?>
+</div>
 
 <h2>Results</h2>
 <div class="card">

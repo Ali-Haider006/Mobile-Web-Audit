@@ -185,6 +185,14 @@ final class Tasks
         );
     }
 
+    public static function setAssignee(int $id, string $assignee): void
+    {
+        Database::run(
+            'UPDATE tasks SET assignee = ?, updated_at = ? WHERE id = ?',
+            [substr($assignee, 0, 120), Database::now(), $id]
+        );
+    }
+
     public static function recordClickUpError(int $id, string $message): void
     {
         Database::run(

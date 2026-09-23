@@ -27,6 +27,16 @@ if (wva_is_post()) {
         $runId = Runs::create((int) $page['site_id'], [$page], 'selected');
         Helpers::redirect('run.php?id=' . $runId);
     }
+    if ($action === 'share') {
+        Wva\ShareLink::ensure(Wva\ShareLink::KIND_PAGE, $pageId, (string) $page['url']);
+        Helpers::flash('Public link ready — anyone with it can read this report.', 'ok');
+        Helpers::redirect('page.php?id=' . $pageId);
+    }
+    if ($action === 'revoke_share') {
+        Wva\ShareLink::revoke(wva_int('link_id'));
+        Helpers::flash('Public link revoked. It now shows "link not available".', 'ok');
+        Helpers::redirect('page.php?id=' . $pageId);
+    }
     if ($action === 'toggle_tracking') {
         Pages::setTracked((int) $page['site_id'], [$pageId], (int) $page['is_tracked'] !== 1);
         Helpers::flash('Tracking updated.', 'ok');
@@ -34,6 +44,7 @@ if (wva_is_post()) {
     }
 }
 
+$shareLink = Wva\ShareLink::liveFor(Wva\ShareLink::KIND_PAGE, $pageId);
 $history = Audits::historyForPage($pageId, 365);
 $recent  = Audits::recentForPage($pageId, 25);
 $latest  = Audits::latestForPage($pageId);
@@ -84,6 +95,14 @@ require WVA_ROOT . '/src/views/header.php';
             <input type="hidden" name="id" value="<?= $pageId ?>">
             <button class="btn primary" type="submit">Audit this page now</button>
         </form>
+        <?php if ($shareLink === null): ?>
+            <form method="post" class="inline">
+                <?= Helpers::csrfField() ?>
+                <input type="hidden" name="action" value="share">
+                <input type="hidden" name="id" value="<?= $pageId ?>">
+                <button class="btn" type="submit">Create a public link</button>
+            </form>
+        <?php endif; ?>
         <form method="post" class="inline">
             <?= Helpers::csrfField() ?>
             <input type="hidden" name="action" value="toggle_tracking">
@@ -92,6 +111,43 @@ require WVA_ROOT . '/src/views/header.php';
         </form>
     </div>
 </div>
+
+<?php if ($shareLink !== null): ?>
+    <div class="card">
+        <div class="row">
+            <div class="field" style="flex:1 1 420px">
+                <label for="share-url">Public read-only link — no login needed</label>
+                <input type="text" id="share-url" readonly value="<?= Helpers::h(Wva\ShareLink::url((string) $shareLink['token'])) ?>"
+                       onclick="this.select()">
+            </div>
+            <div class="actions">
+                <button class="btn small" type="button" id="copy-share">Copy</button>
+                <form method="post" class="inline"
+                      onsubmit="return confirm('Revoke this link? Anyone holding it loses access.');">
+                    <?= Helpers::csrfField() ?>
+                    <input type="hidden" name="action" value="revoke_share">
+                    <input type="hidden" name="id" value="<?= $pageId ?>">
+                    <input type="hidden" name="link_id" value="<?= (int) $shareLink['id'] ?>">
+                    <button class="btn small danger" type="submit">Revoke</button>
+                </form>
+            </div>
+        </div>
+        <div class="small muted" style="margin-top:8px">
+            Created <?= Helpers::h(Helpers::ago((string) $shareLink['created_at'])) ?> ·
+            viewed <?= (int) $shareLink['views'] ?> time(s)<?= $shareLink['last_viewed_at'] ? ', last ' . Helpers::h(Helpers::ago((string) $shareLink['last_viewed_at'])) : '' ?>.
+            Anyone with the link can read this page's report — it is marked noindex, but treat it as public.
+        </div>
+    </div>
+    <script>
+    document.getElementById('copy-share').addEventListener('click', function () {
+        var field = document.getElementById('share-url');
+        field.select();
+        try { navigator.clipboard.writeText(field.value); } catch (e) { document.execCommand('copy'); }
+        this.textContent = 'Copied';
+        setTimeout(function () { document.getElementById('copy-share').textContent = 'Copy'; }, 1500);
+    });
+    </script>
+<?php endif; ?>
 
 <div class="grid cols-4">
     <div class="card tile">
