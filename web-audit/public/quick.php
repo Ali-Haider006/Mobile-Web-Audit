@@ -56,7 +56,7 @@ https://example.com/services
 https://example.com/contact"></textarea>
         </div>
         <div class="field">
-            <label style="display:flex;gap:8px;align-items:center">
+            <label class="choice">
                 <input type="checkbox" name="keep_tracking" value="1" style="width:auto">
                 Keep tracking these URLs from now on (include them in full site scans)
             </label>

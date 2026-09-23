@@ -75,7 +75,8 @@ if (wva_is_post()) {
                     wva_str('name', (string) $site['name']),
                     $thresholdInput === '' ? null : max(1, min(100, (int) $thresholdInput)),
                     wva_str('sitemap_url') ?: null,
-                    wva_str('is_active') !== ''
+                    wva_str('is_active') !== '',
+                    wva_str('clickup_list_id') ?: null
                 );
                 Helpers::flash('Site settings saved.', 'ok');
                 break;
@@ -119,6 +120,10 @@ foreach (Pages::tracked($siteId) as $trackedPage) {
         $summary['passing']++;
     }
 }
+
+$clickUpLists = Wva\ClickUp::cachedLists();
+$clickUpDefaultDefault = (string) Settings::get('clickup_default_list_id', '');
+$clickUpDefaultName = $clickUpDefaultDefault !== '' ? Wva\ClickUp::listName($clickUpDefaultDefault) : '';
 
 $title  = (string) $site['name'];
 $active = 'sites';
@@ -355,6 +360,18 @@ require WVA_ROOT . '/src/views/header.php';
             <div class="field">
                 <label for="site_sitemap">Sitemap URL</label>
                 <input type="text" id="site_sitemap" name="sitemap_url" value="<?= Helpers::h($site['sitemap_url'] ?? '') ?>">
+            </div>
+            <div class="field">
+                <label for="clickup_list_id">ClickUp list for this site's tasks</label>
+                <select id="clickup_list_id" name="clickup_list_id">
+                    <option value="">Use the default<?= $clickUpDefaultName !== '' ? ' (' . Helpers::h($clickUpDefaultName) . ')' : ' — none set' ?></option>
+                    <?php foreach ($clickUpLists as $list): ?>
+                        <option value="<?= Helpers::h($list['id']) ?>"
+                            <?= (string) ($site['clickup_list_id'] ?? '') === (string) $list['id'] ? 'selected' : '' ?>>
+                            <?= Helpers::h($list['path']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
             </div>
             <div class="field">
                 <label for="is_active">Scheduled scans</label>

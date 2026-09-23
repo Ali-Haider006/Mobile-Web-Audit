@@ -82,11 +82,18 @@ final class Sites
         return $override !== null ? (int) $override : Settings::threshold();
     }
 
-    public static function update(int $id, string $name, ?int $threshold, ?string $sitemapUrl, bool $isActive): void
-    {
+    public static function update(
+        int $id,
+        string $name,
+        ?int $threshold,
+        ?string $sitemapUrl,
+        bool $isActive,
+        ?string $clickUpListId = null
+    ): void {
         Database::run(
-            'UPDATE sites SET name = ?, score_threshold = ?, sitemap_url = ?, is_active = ?, updated_at = ? WHERE id = ?',
-            [$name, $threshold, $sitemapUrl, $isActive ? 1 : 0, Database::now(), $id]
+            'UPDATE sites SET name = ?, score_threshold = ?, sitemap_url = ?, is_active = ?,
+                    clickup_list_id = ?, updated_at = ? WHERE id = ?',
+            [$name, $threshold, $sitemapUrl, $isActive ? 1 : 0, $clickUpListId, Database::now(), $id]
         );
     }
 

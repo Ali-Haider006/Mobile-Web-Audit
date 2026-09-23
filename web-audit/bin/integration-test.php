@@ -217,6 +217,49 @@ Runs::cancel($runId);
 check('cancelled', Runs::find($runId)['status'], 'cancelled');
 check('pending items dropped', (int) Database::value('SELECT COUNT(*) FROM scan_items WHERE run_id = ? AND status = ?', [$runId, 'pending']), 0);
 
+step('ClickUp wiring (no API calls)');
+use Wva\ClickUp;
+use Wva\ClickUpSync;
+
+check('columns migrated in', Wva\Migrations::pending(), []);
+check('not configured without a token', ClickUp::configured(), false);
+
+Settings::set('clickup_default_list_id', '900100');
+check('falls back to the global list', ClickUpSync::listIdFor(['clickup_list_id' => null]), '900100');
+check('site override wins', ClickUpSync::listIdFor(['clickup_list_id' => '777']), '777');
+check('blank override falls back', ClickUpSync::listIdFor(['clickup_list_id' => '  ']), '900100');
+
+check('auto-create is off by default', ClickUpSync::autoCreateEnabled(), false);
+Settings::set('clickup_auto_create', '1');
+check('auto-create can be turned on', ClickUpSync::autoCreateEnabled(), true);
+Settings::set('clickup_auto_create', '');
+
+$sample = [
+    'id' => 1, 'site_id' => $siteId, 'page_id' => 1, 'title' => 'Mobile Core Web Vitals below 80 (scored 25) - /services',
+    'details' => "Mobile performance score 25 (target 80+).\n  LCP 6.42 s", 'threshold' => 80,
+    'score_at_open' => 25, 'latest_score' => 25, 'priority' => 'critical',
+    'opened_at' => '2026-09-20 10:00:00', 'url' => 'https://integration-test.invalid/services',
+    'site_name' => 'Integration test',
+];
+Settings::set('app_url', 'https://audit.internal.example/');
+$payload = ClickUpSync::payload($sample);
+check('payload carries the title', str_contains((string) $payload['name'], 'scored 25'), true);
+check('payload priority is urgent', $payload['priority'], 1);
+check('payload has tags', is_array($payload['tags'] ?? null), true);
+$body = (string) $payload['markdown_description'];
+check('body states the score', str_contains($body, '**Mobile performance 25**'), true);
+check('body links the page', str_contains($body, 'https://integration-test.invalid/services'), true);
+check('body links back to the tool', str_contains($body, 'https://audit.internal.example/page.php?id=1'), true);
+check('body embeds the metrics', str_contains($body, 'LCP 6.42 s'), true);
+Settings::set('app_url', '');
+check('no backlink when app_url is unset', str_contains(ClickUpSync::description($sample), '/page.php?id='), false);
+
+// Pushing without a token must be a clean skip, never an exception.
+$openTask = Tasks::openForPage($pageId) ?? ['id' => 0];
+$result = ClickUpSync::push((int) ($openTask['id'] ?: 999999));
+check('push without a token is skipped, not fatal', $result['ok'], false);
+check('skip reason is reported', is_string($result['skipped'] ?? null) || is_string($result['error'] ?? null), true);
+
 step('Settings round-trip');
 Settings::set('score_threshold', '75');
 check('threshold from DB', Settings::threshold(), 75);

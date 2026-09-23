@@ -106,9 +106,35 @@ The browser is only one way to drain the queue. For unattended runs:
 | `bin/scan.php --site=3` | Queue one site |
 | `bin/worker.php --max=20` | Audit up to 20 queued URLs (`--run=ID` for one scan, `--sleep=S` between calls) |
 | `bin/doctor.php [--api] [--public]` | Pre-flight check: PHP, extensions, `.env`, MySQL, schema, API key. The same checks are on `setup.php` in the browser, for hosting without SSH |
-| `bin/install.php` | Load `db/schema.sql` |
+| `bin/install.php` | Load `db/schema.sql`, then add any columns an older install is missing |
 | `bin/selftest.php` | Offline checks of the URL, sitemap and PageSpeed parsing — no DB, no network |
 | `bin/integration-test.php` | End-to-end check against your database — imports, tracking, queue, tasks, every UI query. Safe on a live database: it only touches sites on reserved `.invalid` domains it creates and removes, and spends no API calls |
+
+## ClickUp
+
+Tasks this tool opens can be pushed into ClickUp.
+
+1. In ClickUp: **Settings → Apps → Generate** a personal API token (`pk_...`).
+   The token carries your own permissions, so it can only reach lists you can.
+2. In this tool: **Settings → ClickUp**, paste the token, **Save**, then press
+   **Load lists from ClickUp**. That walks Workspace → Space → Folder → List and
+   caches the result, so the dropdowns are real list names rather than IDs you
+   have to look up. Press it again after adding lists in ClickUp.
+3. Choose a **default list**, and optionally a different list per site under
+   **site settings** — that is how one workspace holds a list per client.
+
+Pushing is **manual by default**: each task gets a *Send to ClickUp* button, and
+once sent the button becomes a link to the ClickUp task. Tick *Create a ClickUp
+task automatically* in Settings to have every newly opened task pushed as soon
+as it opens.
+
+The ClickUp task carries the score against target, the page URL, the failing
+metrics and Lighthouse's biggest wins, with priority mapped from ours
+(critical → Urgent, high → High). Set **This tool's URL** in Settings and it
+also links back to the page's history here.
+
+A ClickUp failure never breaks an audit: the error is recorded against the task
+and shown next to the button, and the audit finishes regardless.
 
 ## How scoring and tasks work
 

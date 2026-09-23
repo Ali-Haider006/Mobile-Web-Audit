@@ -11,6 +11,48 @@ final class Http
     public const USER_AGENT = 'MobileWebAudit/1.0 (+core web vitals tracker)';
 
     /**
+     * One request. GET keeps its own retry/backoff below; anything that writes
+     * is sent exactly once, because retrying a POST can duplicate whatever it
+     * created.
+     *
+     * @param array<int,string> $headers
+     * @return array{status:int, body:string, url:string}
+     */
+    public static function request(
+        string $method,
+        string $url,
+        array $headers = [],
+        ?string $body = null,
+        int $timeout = 30
+    ): array {
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL            => $url,
+            CURLOPT_CUSTOMREQUEST  => strtoupper($method),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_TIMEOUT        => $timeout,
+            CURLOPT_CONNECTTIMEOUT => 15,
+            CURLOPT_USERAGENT      => self::USER_AGENT,
+            CURLOPT_HTTPHEADER     => $headers,
+        ]);
+        if ($body !== null) {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+        }
+
+        $response = curl_exec($ch);
+        $status   = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $error    = curl_error($ch);
+        curl_close($ch);
+
+        if ($response === false) {
+            throw new RuntimeException($method . ' ' . $url . ' failed: ' . ($error !== '' ? $error : 'unknown error'));
+        }
+
+        return ['status' => $status, 'body' => (string) $response, 'url' => $url];
+    }
+
+    /**
      * @return array{status:int, body:string, url:string}
      */
     public static function get(string $url, int $timeout = 60, int $attempts = 3): array

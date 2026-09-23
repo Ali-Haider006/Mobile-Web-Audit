@@ -155,6 +155,23 @@ final class Tasks
         return true;
     }
 
+    public static function recordClickUp(int $id, string $clickUpId, string $url): void
+    {
+        Database::run(
+            'UPDATE tasks SET clickup_task_id = ?, clickup_task_url = ?, clickup_synced_at = ?,
+                    clickup_error = NULL, updated_at = ? WHERE id = ?',
+            [$clickUpId, substr($url, 0, 500), Database::now(), Database::now(), $id]
+        );
+    }
+
+    public static function recordClickUpError(int $id, string $message): void
+    {
+        Database::run(
+            'UPDATE tasks SET clickup_error = ?, updated_at = ? WHERE id = ?',
+            [substr($message, 0, 500), Database::now(), $id]
+        );
+    }
+
     public static function updateStatus(int $id, string $status, ?string $assignee, ?string $note): void
     {
         $allowed = ['open', 'in_progress', 'resolved', 'ignored'];

@@ -218,13 +218,21 @@ final class Doctor
             }
         }
 
+        // Existing databases need columns added that CREATE TABLE IF NOT EXISTS
+        // will never apply.
+        $migration = Migrations::run();
+        foreach ($migration['errors'] as $error) {
+            $errors[] = $error;
+        }
+
         $present = array_map('strval', $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN));
 
         return [
-            'applied' => $applied,
-            'failed'  => count($errors),
-            'errors'  => $errors,
-            'missing' => array_values(array_diff(self::TABLES, $present)),
+            'applied'  => $applied,
+            'failed'   => count($errors),
+            'errors'   => $errors,
+            'missing'  => array_values(array_diff(self::TABLES, $present)),
+            'migrated' => $migration['applied'],
         ];
     }
 }

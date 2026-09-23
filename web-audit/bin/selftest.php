@@ -166,6 +166,32 @@ check('band poor', Helpers::scoreBand(25), 'poor');
 check('band none', Helpers::scoreBand(null), 'none');
 
 
+echo "ClickUp payload parsing\n";
+
+use Wva\ClickUp;
+
+$teams = ['teams' => [
+    ['id' => '9001', 'name' => 'Pixelchefs'],
+    ['id' => '9002'],                               // no name - must be skipped
+    'nonsense',                                     // not even an array
+]];
+check('parseNamed keeps complete rows', count(ClickUp::parseNamed($teams, 'teams')), 1);
+check('parseNamed on a missing key', ClickUp::parseNamed(['x' => 1], 'teams'), []);
+check('parseNamed on an error body', ClickUp::parseNamed(['err' => 'Token invalid'], 'teams'), []);
+
+check('created task id', ClickUp::parseCreated(['id' => 'abc123', 'url' => 'https://app.clickup.com/t/abc123'])['id'], 'abc123');
+check('created task url', ClickUp::parseCreated(['id' => 'abc123'])['url'], 'https://app.clickup.com/t/abc123');
+check('created with no id', ClickUp::parseCreated([])['id'], '');
+
+check('401 names the token', str_contains(ClickUp::errorMessage(['err' => 'Token invalid', 'ECODE' => 'OAUTH_025'], 401), 'check the API token'), true);
+check('429 names the rate limit', str_contains(ClickUp::errorMessage(['err' => 'Rate limit'], 429), 'rate limit'), true);
+check('error keeps ClickUp code', str_contains(ClickUp::errorMessage(['err' => 'No', 'ECODE' => 'X1'], 400), '(X1)'), true);
+check('error with empty body', ClickUp::errorMessage([], 500), 'ClickUp: HTTP 500');
+
+check('critical maps to urgent', ClickUp::priorityFor('critical'), 1);
+check('high maps to high', ClickUp::priorityFor('high'), 2);
+check('anything else is normal', ClickUp::priorityFor('normal'), 3);
+
 /**
  * The stylesheet split only stays honest if something checks it, so these run
  * with the unit tests: the theme layer owns every colour, and the component

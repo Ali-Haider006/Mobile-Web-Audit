@@ -205,11 +205,11 @@ require WVA_ROOT . '/src/views/header.php';
             <div class="row" style="margin-bottom:14px">
                 <div class="field">
                     <label>What should we track?</label>
-                    <label class="small" style="display:flex;gap:8px;align-items:center">
+                    <label class="choice">
                         <input type="radio" name="select_mode" value="rules" checked style="width:auto">
                         Everything except the exclusion rules above
                     </label>
-                    <label class="small" style="display:flex;gap:8px;align-items:center">
+                    <label class="choice">
                         <input type="radio" name="select_mode" value="custom" style="width:auto">
                         Only the URLs I tick below
                     </label>

@@ -285,6 +285,19 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 textarea { min-height: 130px; font-family: var(--mono); font-size: 13px; }
 input[type="checkbox"], input[type="radio"] { accent-color: var(--magenta); width: auto; }
+
+/* A checkbox/radio label reads as a sentence, so it keeps the body font. */
+label.choice {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-family: var(--body);
+    font-size: 13.5px;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+}
 .field { margin-bottom: 15px; }
 .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
 .row > .field { flex: 1 1 220px; margin-bottom: 0; }

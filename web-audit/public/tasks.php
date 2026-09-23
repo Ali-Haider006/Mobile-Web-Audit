@@ -10,6 +10,17 @@ use Wva\Repo\Tasks;
 
 if (wva_is_post()) {
     Helpers::checkCsrf();
+    if (wva_str('action') === 'push_clickup') {
+        $result = Wva\ClickUpSync::push(wva_int('task_id'));
+        if ($result['skipped'] !== null) {
+            Helpers::flash('Not sent: ' . $result['skipped'] . '.', 'warn');
+        } elseif ($result['ok']) {
+            Helpers::flash('Created in ClickUp.', 'ok');
+        } else {
+            Helpers::flash((string) $result['error'], 'error');
+        }
+    }
+
     if (wva_str('action') === 'update') {
         Tasks::updateStatus(
             wva_int('task_id'),
@@ -101,6 +112,27 @@ require WVA_ROOT . '/src/views/header.php';
                     require WVA_ROOT . '/src/views/score.php'; ?></div>
                 <div class="delta">was <?= (int) $task['score_at_open'] ?> when opened</div>
             </div>
+            <?php if (Wva\ClickUp::configured()): ?>
+                <div class="field">
+                    <label>ClickUp</label>
+                    <?php if (!empty($task['clickup_task_url'])): ?>
+                        <a class="btn small" href="<?= Helpers::h($task['clickup_task_url']) ?>" target="_blank" rel="noopener">Open in ClickUp</a>
+                    <?php else: ?>
+                        <form method="post" class="inline">
+                            <?= Helpers::csrfField() ?>
+                            <input type="hidden" name="action" value="push_clickup">
+                            <input type="hidden" name="task_id" value="<?= (int) $task['id'] ?>">
+                            <input type="hidden" name="filter_status" value="<?= Helpers::h($filters['status']) ?>">
+                            <input type="hidden" name="filter_site" value="<?= (int) $filters['site_id'] ?>">
+                            <button class="btn small" type="submit">Send to ClickUp</button>
+                        </form>
+                    <?php endif; ?>
+                    <?php if (!empty($task['clickup_error'])): ?>
+                        <div class="small" style="color:var(--magenta);margin-top:6px"><?= Helpers::h($task['clickup_error']) ?></div>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+
             <form method="post">
                 <?= Helpers::csrfField() ?>
                 <input type="hidden" name="action" value="update">
