@@ -446,6 +446,16 @@ check('then the global list', Monitor::listFor($rulePage, null), 'global-list');
 check('and the default assignee', Monitor::assigneeFor($rulePage, null), 900);
 
 check('monitored() lists the page', in_array($rulePageId, array_map(static fn ($r) => (int) $r['id'], Pages::monitored()), true), true);
+
+// Whoever owns the token is marked in the dropdowns and, on a first load,
+// becomes the default assignee - but a choice already made is never touched.
+Settings::set('clickup_token_owner', '900');
+check('the token owner is marked', \Wva\ClickUp::memberLabel(['id' => 900, 'name' => 'Ali Haider']), 'Ali Haider (you)');
+check('everyone else is not', \Wva\ClickUp::memberLabel(['id' => 777, 'name' => 'Zoe Ray']), 'Zoe Ray');
+Settings::set('clickup_token_owner', '');
+check('nobody is marked before the people load', \Wva\ClickUp::memberLabel(['id' => 900, 'name' => 'Ali Haider']), 'Ali Haider');
+check('an existing default assignee is kept', Monitor::assigneeFor($rulePage, null), 900);
+
 Settings::set('clickup_default_list_id', '');
 Settings::set('clickup_default_assignee', '');
 

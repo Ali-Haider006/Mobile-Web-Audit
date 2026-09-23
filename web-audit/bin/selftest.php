@@ -189,6 +189,19 @@ check('a member without an id is dropped', isset($byId[0]), false);
 check('no members key is survivable', ClickUp::parseMembers(['teams' => [['id' => '1', 'name' => 'x']]]), []);
 check('error payload yields nobody', ClickUp::parseMembers(['err' => 'Token invalid']), []);
 
+echo "ClickUp token owner\n";
+$owner = ClickUp::parseTokenOwner(['user' => ['id' => 502, 'username' => 'Ali Haider', 'email' => 'ali@example.com']]);
+check('owner id', $owner['id'] ?? null, 502);
+check('owner name', $owner['name'] ?? null, 'Ali Haider');
+check(
+    'owner without a username falls back to email',
+    ClickUp::parseTokenOwner(['user' => ['id' => 7, 'email' => 'a@b.c']])['name'] ?? null,
+    'a@b.c'
+);
+check('no user key means nobody', ClickUp::parseTokenOwner(['err' => 'Token invalid']), null);
+check('a user without an id means nobody', ClickUp::parseTokenOwner(['user' => ['username' => 'x']]), null);
+check('id zero means nobody', ClickUp::parseTokenOwner(['user' => ['id' => 0, 'username' => 'x']]), null);
+
 echo "Secret masking\n";
 check('short secrets are fully hidden', Doctor::mask('abc'), '***');
 check('long secrets keep 6 characters', str_starts_with(Doctor::mask('pk_98765_SECRETVALUE'), 'pk_987'), true);

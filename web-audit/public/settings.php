@@ -38,11 +38,16 @@ if (wva_is_post()) {
     if ($action === 'refresh_lists') {
         try {
             $lists  = Wva\ClickUp::refreshLists();
+            $before = trim((string) Settings::get('clickup_default_assignee', ''));
             $people = Wva\ClickUp::refreshMembers();
-            Helpers::flash(
-                'Loaded ' . count($lists) . ' list(s) and ' . count($people) . ' person/people from ClickUp.',
-                $lists === [] ? 'warn' : 'ok'
-            );
+            $after  = trim((string) Settings::get('clickup_default_assignee', ''));
+
+            $note = 'Loaded ' . count($lists) . ' list(s) and ' . count($people) . ' person/people from ClickUp.';
+            if ($before === '' && $after !== '') {
+                // First load: the person holding the token gets the tasks until told otherwise.
+                $note .= ' Default assignee set to ' . Wva\ClickUp::memberName((int) $after) . ' - change it below at any time.';
+            }
+            Helpers::flash($note, $lists === [] ? 'warn' : 'ok');
         } catch (Throwable $e) {
             Helpers::flash($e->getMessage(), 'error');
         }
@@ -183,7 +188,7 @@ require WVA_ROOT . '/src/views/header.php';
                     <?php foreach ($clickUpMembers as $member): ?>
                         <option value="<?= (int) $member['id'] ?>"
                             <?= (string) Settings::get('clickup_default_assignee', '') === (string) $member['id'] ? 'selected' : '' ?>>
-                            <?= Helpers::h($member['name']) ?>
+                            <?= Helpers::h(Wva\ClickUp::memberLabel($member)) ?>
                         </option>
                     <?php endforeach; ?>
                 </select>

@@ -137,7 +137,7 @@ https://whitefish.example/services"></textarea>
                 <select id="assignee_id" name="assignee_id">
                     <option value="">Default assignee</option>
                     <?php foreach ($members as $member): ?>
-                        <option value="<?= (int) $member['id'] ?>"><?= Helpers::h($member['name']) ?></option>
+                        <option value="<?= (int) $member['id'] ?>"><?= Helpers::h(ClickUp::memberLabel($member)) ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -211,7 +211,7 @@ https://whitefish.example/services"></textarea>
                         <?php foreach ($members as $member): ?>
                             <option value="<?= (int) $member['id'] ?>"
                                 <?= (int) ($row['clickup_assignee_id'] ?? 0) === (int) $member['id'] ? 'selected' : '' ?>>
-                                <?= Helpers::h($member['name']) ?>
+                                <?= Helpers::h(ClickUp::memberLabel($member)) ?>
                             </option>
                         <?php endforeach; ?>
                     </select>

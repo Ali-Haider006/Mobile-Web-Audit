@@ -170,9 +170,13 @@ Tasks this tool opens can be created in ClickUp, after you have reviewed them.
 **Assigning**
 
 Loading lists also loads the people in your workspaces, so the review screen has
-an **Assign to** dropdown per task. Pick a **default assignee** in Settings to
-have it pre-selected. Whoever you choose is set as the ClickUp assignee, and
-their name is copied onto the task here too, so both lists agree on who owns it.
+an **Assign to** dropdown per task. The first load also works out who the token
+in `.env` belongs to, marks them `(you)` in every dropdown, and makes them the
+**default assignee** - the person who set the tool up is usually the person who
+wants the tasks. Change it in Settings whenever you like; once you have chosen,
+later refreshes leave your choice alone. Whoever is assigned is set as the
+ClickUp assignee, and their name is copied onto the task here too, so both lists
+agree on who owns it.
 
 **The flow after a scan**
 

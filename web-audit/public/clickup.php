@@ -216,7 +216,7 @@ require WVA_ROOT . '/src/views/header.php';
                         <?php foreach ($members as $member): ?>
                             <option value="<?= (int) $member['id'] ?>"
                                 <?= $defaultMember === (string) $member['id'] ? 'selected' : '' ?>>
-                                <?= Helpers::h($member['name']) ?><?= !empty($member['email']) ? ' · ' . Helpers::h($member['email']) : '' ?>
+                                <?= Helpers::h(ClickUp::memberLabel($member)) ?><?= !empty($member['email']) ? ' · ' . Helpers::h($member['email']) : '' ?>
                             </option>
                         <?php endforeach; ?>
                     </select>

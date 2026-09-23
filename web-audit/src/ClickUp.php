@@ -324,12 +324,90 @@ final class ClickUp
         return is_array($decoded) ? $decoded : [];
     }
 
-    /** @return array<int,array<string,mixed>> */
+    /**
+     * Whoever owns the personal token - i.e. the person who set this tool up.
+     * GET /user is one request and needs no workspace id.
+     *
+     * @return array{id:int,name:string,email:string}|null
+     */
+    public static function fetchTokenOwner(): ?array
+    {
+        return self::parseTokenOwner(self::get('/user'));
+    }
+
+    /**
+     * Pure, so it can be tested against a saved payload.
+     *
+     * @param array<string,mixed> $payload
+     * @return array{id:int,name:string,email:string}|null
+     */
+    public static function parseTokenOwner(array $payload): ?array
+    {
+        $user = $payload['user'] ?? null;
+        if (!is_array($user) || !isset($user['id'])) {
+            return null;
+        }
+        $id = (int) $user['id'];
+        if ($id === 0) {
+            return null;
+        }
+        $name = trim((string) ($user['username'] ?? ''));
+        $mail = trim((string) ($user['email'] ?? ''));
+
+        return [
+            'id'    => $id,
+            'name'  => $name !== '' ? $name : ($mail !== '' ? $mail : 'User ' . $id),
+            'email' => $mail,
+        ];
+    }
+
+    /** The token owner's ClickUp id, 0 until the people list has been loaded. */
+    public static function tokenOwnerId(): int
+    {
+        return (int) Settings::get('clickup_token_owner', 0);
+    }
+
+    /**
+     * Loads the people and remembers who the token belongs to. First time
+     * round, that person also becomes the default assignee - the tool is set
+     * up by the person who wants the tasks - but it never overwrites a choice
+     * already made in Settings.
+     *
+     * @return array<int,array<string,mixed>>
+     */
     public static function refreshMembers(): array
     {
         $people = self::fetchMembers();
         Settings::set('clickup_member_cache', (string) json_encode($people, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+        $owner = null;
+        try {
+            $owner = self::fetchTokenOwner();
+        } catch (Throwable $e) {
+            // Knowing who the token belongs to is a nicety, not a requirement.
+        }
+        if ($owner !== null) {
+            Settings::set('clickup_token_owner', (string) $owner['id']);
+            if (trim((string) Settings::get('clickup_default_assignee', '')) === '') {
+                Settings::set('clickup_default_assignee', (string) $owner['id']);
+            }
+        }
+
         return $people;
+    }
+
+    /**
+     * Dropdown label. The token owner is marked so whoever set the tool up can
+     * find themselves in a workspace with a hundred people in it.
+     *
+     * @param array<string,mixed> $member
+     */
+    public static function memberLabel(array $member): string
+    {
+        $name  = (string) ($member['name'] ?? $member['id'] ?? '');
+        $owner = self::tokenOwnerId();
+
+        return $owner !== 0 && (int) ($member['id'] ?? 0) === $owner ? $name . ' (you)' : $name;
     }
 
     public static function memberName(int $id): string
