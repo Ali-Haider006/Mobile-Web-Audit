@@ -63,6 +63,12 @@ final class Monitor
         }
         $site = Sites::find((int) $page['site_id']);
 
+        // The site may have been archived while its queue was still draining,
+        // or the URL switched off. Record the score, but raise nothing.
+        if (($site !== null && (int) $site['is_active'] !== 1) || (int) $page['is_tracked'] !== 1) {
+            return ['action' => 'skipped', 'detail' => 'this URL is no longer audited'];
+        }
+
         if (($result['status'] ?? 'ok') !== 'ok' || ($result['performance_score'] ?? null) === null) {
             return self::handleAuditFailure($page, (string) ($result['error_message'] ?? 'audit failed'));
         }
@@ -224,6 +230,38 @@ final class Monitor
             return $perUrl;
         }
         return ClickUpSync::listIdFor($site);
+    }
+
+    /**
+     * A site is no longer being audited - the client left, or the URL was a
+     * mistake. Every task still open here is now nobody's job, so say so in
+     * ClickUp and settle it on our side.
+     *
+     * ClickUp tasks are commented on, never closed: whoever owns that list
+     * decides what happens to work already assigned to a person. Same rule as
+     * a recovery, for the same reason.
+     *
+     * @return array{tasks:int,commented:int,failed:int}
+     */
+    public static function siteStopped(int $siteId, string $reason): array
+    {
+        $result = ['tasks' => 0, 'commented' => 0, 'failed' => 0];
+
+        foreach (Tasks::search(['site_id' => $siteId, 'status' => 'open']) as $task) {
+            $result['tasks']++;
+            $taskId = (int) $task['id'];
+
+            if (!empty($task['clickup_task_id'])) {
+                $note = 'This page is no longer being audited (' . $reason . '), so this task will not be '
+                    . 'updated again. Closing it is left to you.';
+                $outcome = self::tryComment((string) $task['clickup_task_id'], $note, 'stopped');
+                $outcome['detail'] === 'commented in ClickUp' ? $result['commented']++ : $result['failed']++;
+            }
+
+            Tasks::closeOut($taskId, 'No longer audited: ' . $reason);
+        }
+
+        return $result;
     }
 
     public static function assigneeFor(array $page, ?array $site): int

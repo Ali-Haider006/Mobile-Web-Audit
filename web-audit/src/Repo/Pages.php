@@ -219,9 +219,32 @@ final class Pages
                       AND t.status IN (\'open\',\'in_progress\') ORDER BY t.id DESC LIMIT 1) AS open_task_url
              FROM pages p
              INNER JOIN sites s ON s.id = p.site_id
-             WHERE p.is_tracked = 1
+             WHERE p.is_tracked = 1 AND s.is_active = 1
              ORDER BY p.last_score IS NULL, p.last_score ASC, s.name, p.path',
             [\Wva\Settings::threshold()]
+        );
+    }
+
+    /**
+     * URLs that are on the Monitor screen but are not being audited: either the
+     * URL itself was switched off, or its whole site was. They keep their
+     * history and can be switched back on - without this they would simply
+     * vanish from the screen, which is a one-way door.
+     *
+     * A URL that was never audited is not dormant, it is just an untracked
+     * sitemap entry, and those belong on the site screen.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public static function dormant(): array
+    {
+        return Database::all(
+            'SELECT p.*, s.name AS site_name, s.is_active AS site_active
+             FROM pages p
+             INNER JOIN sites s ON s.id = p.site_id
+             WHERE (p.is_tracked = 0 AND p.audit_count > 0)
+                OR (p.is_tracked = 1 AND s.is_active = 0)
+             ORDER BY s.name, p.path'
         );
     }
 

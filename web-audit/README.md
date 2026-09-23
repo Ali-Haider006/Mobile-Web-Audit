@@ -148,6 +148,32 @@ The two thresholds and the recovery behaviour are on the Settings screen.
 Where a task goes is resolved per URL first, then the site, then the global
 default — same for the assignee.
 
+### When a client goes away
+
+Losing a client is not the same as making a typo, so there are two actions on
+the **Sites** screen and they are deliberately different.
+
+| | Stop auditing | Delete |
+|---|---|---|
+| Scheduled audits | Stop | Stop |
+| Score history | Kept | **Erased** |
+| Open tasks here | Closed out as *ignored*, with the reason | Erased |
+| Tasks in ClickUp | A comment saying the page is no longer audited | The same comment, then the local record goes |
+| Reversible | Yes — **Resume** | No |
+
+**Stop auditing** is the one you want when you have been fired, when a client is
+paused, or when a site is mid-rebuild. Everything stays: resume it months later
+and the graphs still show what the scores were. **Delete** is for a URL added by
+mistake, or for a client who has asked you to hold nothing.
+
+Both leave the ClickUp tasks alone beyond a comment. Whoever owns that list
+decides what happens to work already assigned to a person — the same rule the
+tool follows when a page recovers.
+
+Switching a single URL off with its **On** tick is the same idea at URL scale.
+It drops out of the schedule but stays on the Monitor screen under *Not being
+audited*, with a Resume button, so it is never a one-way door.
+
 ## ClickUp
 
 Tasks this tool opens can be created in ClickUp, after you have reviewed them.

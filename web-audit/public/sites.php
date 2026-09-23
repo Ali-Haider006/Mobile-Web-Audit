@@ -18,8 +18,33 @@ if (wva_is_post()) {
             Helpers::flash('Site saved. Now import its sitemap.', 'ok');
             Helpers::redirect('import.php?site_id=' . (int) $site['id']);
         }
+        if ($action === 'archive') {
+            $siteId = wva_int('site_id');
+            $reason = wva_str('reason') !== '' ? wva_str('reason') : 'we no longer audit this site';
+            $settled = \Wva\Monitor::siteStopped($siteId, $reason);
+            Sites::setActive($siteId, false);
+
+            $note = 'Archived. Scheduled audits have stopped; the history is kept.';
+            if ($settled['tasks'] > 0) {
+                $note .= ' Closed out ' . $settled['tasks'] . ' open task(s)';
+                $note .= $settled['commented'] > 0 ? ', commented on ' . $settled['commented'] . ' in ClickUp' : '';
+                $note .= $settled['failed'] > 0 ? '; ' . $settled['failed'] . ' ClickUp comment(s) failed' : '';
+                $note .= '. Closing them in ClickUp is left to you.';
+            }
+            Helpers::flash($note, $settled['failed'] > 0 ? 'warn' : 'ok');
+            Helpers::redirect('sites.php');
+        }
+        if ($action === 'resume') {
+            Sites::setActive(wva_int('site_id'), true);
+            Helpers::flash('Auditing resumed. The next scheduled run picks this site up again.', 'ok');
+            Helpers::redirect('sites.php');
+        }
         if ($action === 'delete') {
-            Sites::delete(wva_int('site_id'));
+            $siteId = wva_int('site_id');
+            // Deleting drops the tasks with everything else, so speak up in
+            // ClickUp first - those tasks live somewhere we cannot clean up.
+            \Wva\Monitor::siteStopped($siteId, 'the site was deleted from the audit tool');
+            Sites::delete($siteId);
             Helpers::flash('Site deleted, along with its pages, history and tasks.', 'ok');
             Helpers::redirect('sites.php');
         }
@@ -70,6 +95,9 @@ require WVA_ROOT . '/src/views/header.php';
         <?php foreach ($sites as $site): ?>
             <tr>
                 <td><a href="site.php?id=<?= (int) $site['id'] ?>"><?= Helpers::h($site['name']) ?></a>
+                    <?php if ((int) $site['is_active'] !== 1): ?>
+                        <span class="pill excluded">Not audited</span>
+                    <?php endif; ?>
                     <div class="small muted"><?= Helpers::h($site['url']) ?></div></td>
                 <td class="num"><?= (int) $site['page_count'] ?></td>
                 <td class="num"><?= (int) $site['tracked_count'] ?></td>
@@ -77,8 +105,24 @@ require WVA_ROOT . '/src/views/header.php';
                 <td class="num"><?= (int) $site['failing_count'] ?></td>
                 <td class="num actions" style="justify-content:flex-end">
                     <a class="btn small" href="import.php?site_id=<?= (int) $site['id'] ?>">Import sitemap</a>
+                    <?php if ((int) $site['is_active'] === 1): ?>
+                        <form method="post" class="inline"
+                              onsubmit="return confirm('Stop auditing <?= Helpers::h($site['name']) ?>?\n\nScheduled audits stop and open tasks are closed out here, with a note added in ClickUp. All history is kept and you can resume any time.');">
+                            <?= Helpers::csrfField() ?>
+                            <input type="hidden" name="action" value="archive">
+                            <input type="hidden" name="site_id" value="<?= (int) $site['id'] ?>">
+                            <button class="btn small" type="submit">Stop auditing</button>
+                        </form>
+                    <?php else: ?>
+                        <form method="post" class="inline">
+                            <?= Helpers::csrfField() ?>
+                            <input type="hidden" name="action" value="resume">
+                            <input type="hidden" name="site_id" value="<?= (int) $site['id'] ?>">
+                            <button class="btn small" type="submit">Resume</button>
+                        </form>
+                    <?php endif; ?>
                     <form method="post" class="inline"
-                          onsubmit="return confirm('Delete this site and all of its history? This cannot be undone.');">
+                          onsubmit="return confirm('Permanently delete <?= Helpers::h($site['name']) ?>?\n\nThis erases <?= (int) $site['page_count'] ?> page(s) and every score ever recorded for them. It cannot be undone.\n\nIf you have simply stopped working on this client, use Stop auditing instead - it keeps the history.');">
                         <?= Helpers::csrfField() ?>
                         <input type="hidden" name="action" value="delete">
                         <input type="hidden" name="site_id" value="<?= (int) $site['id'] ?>">

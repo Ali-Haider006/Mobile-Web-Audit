@@ -53,7 +53,10 @@ if (Settings::apiKey() === '') {
 
 $pages = Pages::monitored();
 if ($pages === []) {
-    say('No URLs are being monitored. Add some on the Monitor screen.');
+    $dormant = count(Pages::dormant());
+    say($dormant > 0
+        ? 'No URLs are being audited. ' . $dormant . ' are switched off or belong to an archived site.'
+        : 'No URLs are being monitored. Add some on the Monitor screen.');
     exit(0);
 }
 

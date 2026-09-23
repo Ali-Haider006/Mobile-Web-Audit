@@ -97,6 +97,15 @@ final class Sites
         );
     }
 
+    /** Stop or resume scheduled audits for a whole site. */
+    public static function setActive(int $id, bool $active): void
+    {
+        Database::run(
+            'UPDATE sites SET is_active = ?, updated_at = ? WHERE id = ?',
+            [$active ? 1 : 0, Database::now(), $id]
+        );
+    }
+
     public static function delete(int $id): void
     {
         Database::run('DELETE FROM sites WHERE id = ?', [$id]);

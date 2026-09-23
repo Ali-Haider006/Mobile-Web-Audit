@@ -176,6 +176,21 @@ final class Tasks
         return true;
     }
 
+    /**
+     * Settle a task that nobody is going to work on any more - the site was
+     * archived or deleted. "ignored" rather than "resolved": the page was never
+     * fixed, and a truthful history matters more than a tidy one.
+     */
+    public static function closeOut(int $id, string $note): void
+    {
+        $now = Database::now();
+        Database::run(
+            'UPDATE tasks SET status = \'ignored\', resolved_at = ?, updated_at = ?, resolution_note = ?
+             WHERE id = ? AND status IN (\'open\',\'in_progress\')',
+            [$now, $now, substr($note, 0, 255), $id]
+        );
+    }
+
     public static function recordClickUp(int $id, string $clickUpId, string $url): void
     {
         Database::run(

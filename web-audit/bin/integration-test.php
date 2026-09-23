@@ -377,6 +377,12 @@ check('and omits it when turned off', str_contains(ClickUpSync::description($sam
 Settings::set('clickup_public_link', '1');
 Settings::set('app_url', '');
 
+/** Is this page id in a result set? */
+function wvaIdsIn(array $rows, int $pageId): bool
+{
+    return in_array($pageId, array_map(static fn (array $r): int => (int) $r['id'], $rows), true);
+}
+
 step('Scheduled monitoring rules');
 use Wva\Monitor;
 
@@ -458,6 +464,43 @@ check('an existing default assignee is kept', Monitor::assigneeFor($rulePage, nu
 
 Settings::set('clickup_default_list_id', '');
 Settings::set('clickup_default_assignee', '');
+
+step('Stopping and resuming a site');
+
+// A failing page with an open task, i.e. a client we are about to lose.
+$audit(30);
+check('a task is open before we stop', Tasks::openForPage($rulePageId) !== null, true);
+check('and the URL is in the cron list', wvaIdsIn(Pages::monitored(), $rulePageId), true);
+
+$settled = Monitor::siteStopped($siteId, 'we no longer work with this client');
+Sites::setActive($siteId, false);
+
+check('the open task is settled', $settled['tasks'] >= 1, true);
+check('nothing is left open', Tasks::openForPage($rulePageId), null);
+check('and it reads as ignored, not fixed', Tasks::forPage($rulePageId)[0]['status'], 'ignored');
+check('the reason is recorded', str_contains((string) Tasks::forPage($rulePageId)[0]['resolution_note'], 'no longer work'), true);
+
+check('an archived site leaves the cron list', wvaIdsIn(Pages::monitored(), $rulePageId), false);
+check('but shows as dormant instead', wvaIdsIn(Pages::dormant(), $rulePageId), true);
+check('history is untouched', (int) Database::value('SELECT COUNT(*) FROM audits WHERE page_id = ?', [$rulePageId]) > 0, true);
+
+// An audit still in flight when the site was archived must not open anything.
+$after = $audit(20);
+check('a late audit raises no task', $after['action'], 'skipped');
+check('and still opens nothing', Tasks::openForPage($rulePageId), null);
+
+Sites::setActive($siteId, true);
+check('resuming puts it back in the cron list', wvaIdsIn(Pages::monitored(), $rulePageId), true);
+check('and out of the dormant list', wvaIdsIn(Pages::dormant(), $rulePageId), false);
+check('a failure after resuming opens a fresh task', $audit(30)['action'], 'task opened');
+
+// Switching one URL off keeps it visible, unlike vanishing from the screen.
+Pages::setTracked($siteId, [$rulePageId], false);
+check('a switched-off URL leaves the cron list', wvaIdsIn(Pages::monitored(), $rulePageId), false);
+check('and is listed as dormant', wvaIdsIn(Pages::dormant(), $rulePageId), true);
+Pages::setTracked($siteId, [$rulePageId], true);
+
+Database::run('DELETE FROM tasks WHERE page_id = ?', [$rulePageId]);
 
 step('Settings round-trip');
 Settings::set('score_threshold', '75');

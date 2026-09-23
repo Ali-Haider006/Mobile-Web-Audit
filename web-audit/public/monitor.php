@@ -59,6 +59,18 @@ if (wva_is_post()) {
         Helpers::redirect('monitor.php');
     }
 
+    if ($action === 'resume_page') {
+        $pageId = wva_int('page_id');
+        $page   = Pages::find($pageId);
+        if ($page !== null) {
+            Pages::setTracked((int) $page['site_id'], [$pageId], true);
+            // A paused site would keep it dormant, so lift that too.
+            Sites::setActive((int) $page['site_id'], true);
+            Helpers::flash('Auditing resumed for this URL.', 'ok');
+        }
+        Helpers::redirect('monitor.php');
+    }
+
     if ($action === 'audit_now') {
         $pages = Pages::monitored();
         $bySite = [];
@@ -78,6 +90,7 @@ if (wva_is_post()) {
 }
 
 $rows    = Pages::monitored();
+$dormant = Pages::dormant();
 $lists   = ClickUp::cachedLists();
 $members = ClickUp::cachedMembers();
 $warning = AuditRunner::warnIfNoApiKey();
@@ -240,4 +253,38 @@ https://whitefish.example/services"></textarea>
     </div>
     <?php endif; ?>
 </div>
+
+<?php if ($dormant !== []): ?>
+<div class="card">
+    <h3>Not being audited (<?= count($dormant) ?>)</h3>
+    <p class="sub">Switched off, or belonging to a site we have stopped auditing. Their history is kept
+       and nothing here opens tasks. Delete a site on the <a href="sites.php">Sites</a> screen to erase it for good.</p>
+    <div class="table-wrap">
+    <table>
+        <thead><tr><th>URL</th><th class="num">Last score</th><th>Last audit</th><th>Why</th><th></th></tr></thead>
+        <tbody>
+        <?php foreach ($dormant as $row): ?>
+            <tr>
+                <td><a href="page.php?id=<?= (int) $row['id'] ?>"><?= Helpers::h($row['url']) ?></a>
+                    <div class="small muted"><?= Helpers::h($row['site_name']) ?></div></td>
+                <td class="num"><?= $row['last_score'] === null ? '—' : (int) $row['last_score'] ?></td>
+                <td class="small muted"><?= Helpers::h(Helpers::ago($row['last_audit_at'])) ?></td>
+                <td class="small muted">
+                    <?= (int) $row['site_active'] === 0 ? 'Site not audited' : 'URL switched off' ?>
+                </td>
+                <td class="num">
+                    <form method="post" class="inline">
+                        <?= Helpers::csrfField() ?>
+                        <input type="hidden" name="action" value="resume_page">
+                        <input type="hidden" name="page_id" value="<?= (int) $row['id'] ?>">
+                        <button class="btn small" type="submit">Resume</button>
+                    </form>
+                </td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    </div>
+</div>
+<?php endif; ?>
 <?php require WVA_ROOT . '/src/views/footer.php'; ?>
