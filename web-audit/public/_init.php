@@ -164,10 +164,31 @@ if (!function_exists('wva_require_schema')) {
                 );
             }
         } catch (Throwable $e) {
+            /*
+             * Two very different faults arrive here and used to get the same
+             * advice: the database is unreachable, or it is connected and
+             * simply has no tables yet. The second is one button press, so say
+             * which one it is rather than sending someone to edit .env when
+             * their credentials were right all along.
+             */
+            $connected = false;
+            try {
+                Database::pdo();
+                $connected = true;
+            } catch (Throwable $ignored) {
+                // Stay with the unreachable-database advice below.
+            }
+
             wva_fail(
-                'Database not ready',
-                "Could not query the database.\n\n" . $e->getMessage()
-                . "\n\nCreate the database, load db/schema.sql, and set DB_* in .env."
+                $connected ? 'The database is empty' : 'Database not ready',
+                $connected
+                    ? "Connected fine - there are just no tables yet.\n\n"
+                        . "Open  setup.php  and press \"Install the schema\". With shell access, "
+                        . "php bin/install.php does the same thing.\n\n" . $e->getMessage()
+                    : "Could not reach the database.\n\n" . $e->getMessage()
+                        . "\n\nCheck db_host, db_name, db_user and db_pass in config/local.php "
+                        . "(or DB_HOST etc. in .env), then open setup.php - when the credentials are "
+                        . "right but the name is wrong, it lists the databases your login can see."
             );
         }
         $checked = true;
