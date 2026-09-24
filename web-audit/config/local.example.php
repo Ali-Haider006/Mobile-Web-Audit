@@ -19,10 +19,19 @@ return [
     // Required once this is reachable from the internet.
     'app_password' => '',
 
-    // Turn on while setting up: shows the real error instead of a blank page.
-    'debug' => true,
+    // Shows the real error instead of a blank page. Turn it on while setting
+    // up, then OFF: on a live site it prints notices to visitors, which leaks
+    // absolute paths and breaks any redirect that follows the output.
+    'debug' => false,
 
     'score_threshold' => 80,
-    // Shared hosts often cap scripts at ~30s; keep the API call inside that.
-    'http_timeout'    => 20,
+
+    /*
+     * Seconds to let Google take over one audit. Leave this alone unless an
+     * audit reports a timeout: the app already fits the call inside the host's
+     * max_execution_time by itself, and a low value here caps every audit
+     * regardless of how much room the server actually has. A real page needs
+     * 20-60s, so a 20 here fails almost everything.
+     */
+    // 'http_timeout' => 120,
 ];

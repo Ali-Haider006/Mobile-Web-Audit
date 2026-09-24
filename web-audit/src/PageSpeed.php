@@ -45,9 +45,10 @@ final class PageSpeed
          */
         self::askForMoreTime();
 
-        $limit    = (int) ini_get('max_execution_time');
-        $attempts = 3;
-        $budget   = 0;
+        $requested = $timeout;          // whatever http_timeout asked for
+        $limit     = (int) ini_get('max_execution_time');
+        $attempts  = 3;
+        $budget    = 0;
         if ($limit > 0) {
             $budget   = max(10, $limit - 12);
             $timeout  = min($timeout, $budget);
@@ -77,7 +78,9 @@ final class PageSpeed
         try {
             $response = Http::get($request, $timeout, $attempts);
         } catch (RuntimeException $e) {
-            throw new RuntimeException(self::explainTimeout($e->getMessage(), $timeout, $limit, $full));
+            throw new RuntimeException(
+                self::explainTimeout($e->getMessage(), $timeout, $requested, $limit, $full)
+            );
         }
         $payload   = json_decode($response['body'], true);
 
@@ -242,25 +245,39 @@ final class PageSpeed
 
     /**
      * A bare "Operation timed out after 20002 milliseconds" tells nobody what
-     * to change. Name the limit that produced that number and the two ways out.
+     * to change - and there are two different settings that can produce that
+     * number, with opposite fixes. Name whichever one actually applied.
      */
-    private static function explainTimeout(string $message, int $timeout, int $limit, bool $full): string
-    {
+    private static function explainTimeout(
+        string $message,
+        int $timeout,
+        int $requested,
+        int $limit,
+        bool $full
+    ): string {
         if (!str_contains($message, 'timed out')) {
             return $message;
         }
 
-        $why = $limit > 0
-            ? ' The ' . $timeout . 's ceiling comes from this server\'s max_execution_time of ' . $limit
-                . 's, less headroom to return a reply.'
-            : '';
+        // Only max_execution_time can cut the ceiling below what was asked for.
+        $cutByHost = $limit > 0 && $timeout < $requested;
 
-        $fix = $limit > 0 && $limit < 90
-            ? ' Raise max_execution_time to 120 in php.ini or the control panel\'s PHP settings.'
-            : ' The page itself may simply be slow to audit - try it at pagespeed.web.dev to compare.';
+        if ($cutByHost) {
+            $why = ' The ' . $timeout . 's ceiling comes from this server\'s max_execution_time of '
+                . $limit . 's, less headroom to return a reply.';
+            $fix = $limit < 90
+                ? ' Raise max_execution_time to 120 in php.ini or the control panel\'s PHP settings.'
+                : ' The page itself may simply be slow to audit - compare it at pagespeed.web.dev.';
+        } else {
+            $why = ' The ' . $timeout . 's ceiling is the http_timeout setting, not a server limit.';
+            $fix = $timeout < 60
+                ? ' A real page needs 20-60s, so raise http_timeout to 120 in config/local.php'
+                    . ' - or delete the line and let the default apply.'
+                : ' The page itself may simply be slow to audit - compare it at pagespeed.web.dev.';
+        }
 
         return $message . '.' . $why . $fix
-            . ($full ? ' Below ' . self::FULL_CATEGORY_BUDGET . 's only the performance score is requested.' : '');
+            . ($full ? '' : ' Only the performance score was requested, to fit the time available.');
     }
 
     private static function trim(string $value, int $length): string

@@ -67,7 +67,8 @@ register_shutdown_function(static function () use (&$wvaResponded): void {
     $limit = (int) ini_get('max_execution_time');
     $message = $fatal !== null && str_contains(strtolower((string) $fatal['message']), 'maximum execution time')
         ? 'This host stopped the script at its ' . $limit . 's limit before PageSpeed answered. '
-          . 'Lower http_timeout in config/local.php (try ' . max(10, $limit - 20) . ') and re-run; the URL stays queued.'
+          . 'Raise max_execution_time to 120 in the control panel\'s PHP settings; a real page needs '
+          . '20-60s to audit. The URL stays queued, so just re-run.'
         : 'The server ended the request without a reply'
           . ($fatal !== null ? ': ' . $fatal['message'] : '.');
     if (!headers_sent()) {

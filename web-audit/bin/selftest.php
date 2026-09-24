@@ -258,14 +258,35 @@ check('notices are hidden unless debug is on', str_contains($sources['public/_in
 // The timeout message has to name the setting that produced the number.
 $explain = new ReflectionMethod(\Wva\PageSpeed::class, 'explainTimeout');
 $explain->setAccessible(true);
-$timedOut = $explain->invoke(null, 'Operation timed out after 20002 milliseconds', 20, 32, false);
-check('the timeout message names max_execution_time', str_contains($timedOut, 'max_execution_time of 32'), true);
-check('and says how to raise it', str_contains($timedOut, 'Raise max_execution_time'), true);
+$timeout = 'Operation timed out after 20002 milliseconds';
+
+// Two settings can produce the same number, and their fixes are opposite.
+$byHost = $explain->invoke(null, $timeout, 20, 120, 32, false);
+check('a host-capped timeout blames max_execution_time', str_contains($byHost, 'max_execution_time of 32'), true);
+check('and says to raise it', str_contains($byHost, 'Raise max_execution_time'), true);
+check('not http_timeout', str_contains($byHost, 'raise http_timeout'), false);
+
+$bySetting = $explain->invoke(null, $timeout, 20, 20, 300, true);
+check('a config-capped timeout blames http_timeout', str_contains($bySetting, 'is the http_timeout setting'), true);
+check('and does not blame the server', str_contains($bySetting, 'max_execution_time of'), false);
+
+check(
+    'the fallback is only mentioned when it happened',
+    str_contains($explain->invoke(null, $timeout, 20, 120, 32, true), 'Only the performance score'),
+    false
+);
 check(
     'a non-timeout error passes through unchanged',
-    $explain->invoke(null, 'PageSpeed API error: quota exceeded', 20, 32, false),
+    $explain->invoke(null, 'PageSpeed API error: quota exceeded', 20, 20, 300, true),
     'PageSpeed API error: quota exceeded'
 );
+
+// The example config is copied verbatim by anyone setting up, so its values
+// ship to production. A 20s cap fails almost every real audit, and leaving
+// debug on prints notices to visitors.
+$example = (array) (require WVA_ROOT . '/config/local.example.php');
+check('the example does not cap http_timeout', isset($example['http_timeout']), false);
+check('and does not ship debug on', $example['debug'] ?? false, false);
 
 echo "Cron endpoint\n";
 $cron = file_get_contents(WVA_ROOT . '/public/cron.php');
