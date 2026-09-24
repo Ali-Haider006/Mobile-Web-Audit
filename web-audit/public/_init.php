@@ -66,6 +66,14 @@ $wvaDebug = (bool) Config::get('debug', false);
 if ($wvaDebug) {
     ini_set('display_errors', '1');
     error_reporting(E_ALL);
+} else {
+    /*
+     * Plenty of hosts ship display_errors on. Printed notices leak absolute
+     * paths to anyone looking, and any output before a redirect header makes
+     * that redirect fail - so a harmless deprecation becomes a broken page.
+     * Errors still go to the log, and the handlers below still show a page.
+     */
+    ini_set('display_errors', '0');
 }
 
 if (!function_exists('wva_error_page')) {

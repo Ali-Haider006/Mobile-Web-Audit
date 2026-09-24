@@ -54,8 +54,14 @@ $started = microtime(true);
  */
 ignore_user_abort(true);
 
-// Shared hosts often allow this even when they will not let you edit php.ini.
-@set_time_limit(300);
+/*
+ * Shared hosts often allow this even when they will not let you edit php.ini.
+ * function_exists() matters: where set_time_limit is in disable_functions the
+ * call is a fatal Error, which @ does not suppress.
+ */
+if (function_exists('set_time_limit')) {
+    @set_time_limit(300);
+}
 
 /**
  * Leave headroom under max_execution_time: an audit killed mid-flight leaves

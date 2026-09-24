@@ -202,6 +202,71 @@ check('no user key means nobody', ClickUp::parseTokenOwner(['err' => 'Token inva
 check('a user without an id means nobody', ClickUp::parseTokenOwner(['user' => ['username' => 'x']]), null);
 check('id zero means nobody', ClickUp::parseTokenOwner(['user' => ['id' => 0, 'username' => 'x']]), null);
 
+echo "PHP 8.5 and locked-down hosts\n";
+$sources = [];
+foreach (['src', 'public'] as $dir) {
+    $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(WVA_ROOT . '/' . $dir));
+    foreach ($it as $f) {
+        if ($f->isFile() && str_ends_with($f->getFilename(), '.php')) {
+            $sources[str_replace(WVA_ROOT . '/', '', $f->getPathname())] = file_get_contents($f->getPathname());
+        }
+    }
+}
+
+// curl_close() is deprecated in 8.5 and has done nothing since 8.0. The notice
+// printed before redirect headers, which broke the page outright.
+$closers = [];
+foreach ($sources as $file => $code) {
+    foreach (explode("\n", $code) as $n => $line) {
+        $trimmed = ltrim($line);
+        // Skip comment lines - the ban is explained in one.
+        if ($trimmed === '' || str_starts_with($trimmed, '*') || str_starts_with($trimmed, '//')
+            || str_starts_with($trimmed, '/*') || str_starts_with($trimmed, '#')) {
+            continue;
+        }
+        // Drop a trailing comment too - one of them names the banned call.
+        $code_only = (string) preg_replace('~//.*$~', '', $line);
+        if (str_contains($code_only, 'curl_close')) {
+            $closers[] = $file . ':' . ($n + 1);
+        }
+    }
+}
+check('nothing calls curl_close()', $closers, []);
+
+// set_time_limit in disable_functions makes the call a fatal Error, which @
+// does not suppress - so every call site must be guarded.
+$unguarded = [];
+foreach ($sources as $file => $code) {
+    $lines = explode("\n", $code);
+    foreach ($lines as $n => $line) {
+        if (!preg_match('/^\s*@?set_time_limit\s*\(/', $line)) {
+            continue;
+        }
+        $before = implode("\n", array_slice($lines, max(0, $n - 4), 4));
+        if (!str_contains($before, "function_exists('set_time_limit')")) {
+            $unguarded[] = $file . ':' . ($n + 1);
+        }
+    }
+}
+check('every set_time_limit() is guarded', $unguarded, []);
+
+// A redirect must survive output that has already been sent.
+check('redirect checks headers_sent()', str_contains($sources['src/Helpers.php'] ?? '', 'headers_sent()'), true);
+check('and falls back to a meta refresh', str_contains($sources['src/Helpers.php'] ?? '', 'http-equiv="refresh"'), true);
+check('notices are hidden unless debug is on', str_contains($sources['public/_init.php'] ?? '', "ini_set('display_errors', '0')"), true);
+
+// The timeout message has to name the setting that produced the number.
+$explain = new ReflectionMethod(\Wva\PageSpeed::class, 'explainTimeout');
+$explain->setAccessible(true);
+$timedOut = $explain->invoke(null, 'Operation timed out after 20002 milliseconds', 20, 32, false);
+check('the timeout message names max_execution_time', str_contains($timedOut, 'max_execution_time of 32'), true);
+check('and says how to raise it', str_contains($timedOut, 'Raise max_execution_time'), true);
+check(
+    'a non-timeout error passes through unchanged',
+    $explain->invoke(null, 'PageSpeed API error: quota exceeded', 20, 32, false),
+    'PageSpeed API error: quota exceeded'
+);
+
 echo "Cron endpoint\n";
 $cron = file_get_contents(WVA_ROOT . '/public/cron.php');
 check('it is a public page, not behind the login gate', str_contains($cron, "define('WVA_PUBLIC_PAGE', true)"), true);

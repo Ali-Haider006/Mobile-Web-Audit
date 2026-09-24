@@ -187,7 +187,20 @@ final class Helpers
 
     public static function redirect(string $location): void
     {
-        header('Location: ' . $location);
+        if (!headers_sent()) {
+            header('Location: ' . $location);
+            exit;
+        }
+
+        /*
+         * Something already printed - a host with display_errors on, a stray
+         * notice, a BOM in an edited file. The redirect header is refused at
+         * that point and the user is stranded on a page of warnings, so fall
+         * back to sending them on in HTML instead of failing outright.
+         */
+        $url = self::h($location);
+        echo '<meta http-equiv="refresh" content="0;url=' . $url . '">'
+            . '<p style="font:14px system-ui">Continuing to <a href="' . $url . '">' . $url . '</a>...</p>';
         exit;
     }
 

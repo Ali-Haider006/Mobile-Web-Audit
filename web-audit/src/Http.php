@@ -43,7 +43,13 @@ final class Http
         $response = curl_exec($ch);
         $status   = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         $error    = curl_error($ch);
-        curl_close($ch);
+        /*
+         * No curl_close(): it has done nothing since PHP 8.0, where the handle
+         * became an object freed by refcount, and PHP 8.5 deprecates it. The
+         * notice printed before any redirect header, so on 8.5 the deprecation
+         * itself broke the page.
+         */
+        unset($ch);
 
         if ($response === false) {
             throw new RuntimeException($method . ' ' . $url . ' failed: ' . ($error !== '' ? $error : 'unknown error'));
@@ -75,7 +81,7 @@ final class Http
             $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
             $final  = (string) curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
             $err    = curl_error($ch);
-            curl_close($ch);
+            unset($ch);                 // see the note above: never curl_close()
 
             if ($body !== false && $status > 0 && $status < 500 && $status !== 429) {
                 return ['status' => $status, 'body' => (string) $body, 'url' => $final];

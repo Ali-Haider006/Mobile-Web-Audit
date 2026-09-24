@@ -46,7 +46,11 @@ session_write_close();
 $runId = isset($_POST['run_id']) && is_numeric($_POST['run_id']) ? (int) $_POST['run_id'] : null;
 $batch = isset($_POST['batch']) && is_numeric($_POST['batch']) ? max(1, min(5, (int) $_POST['batch'])) : 1;
 
-@set_time_limit(300);
+// Guarded: where set_time_limit is in disable_functions the call is a fatal
+// Error, and @ does not suppress an Error.
+if (function_exists('set_time_limit')) {
+    @set_time_limit(300);
+}
 ignore_user_abort(true);
 
 /*
