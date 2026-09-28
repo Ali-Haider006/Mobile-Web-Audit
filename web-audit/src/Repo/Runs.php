@@ -55,6 +55,19 @@ final class Runs
     }
 
     /** @return array<int,array<string,mixed>> */
+    /**
+     * When the last scheduled sweep was started, or null if there has never
+     * been one. Lets a frequently-polled trigger decide whether a new sweep is
+     * actually due - see public/cron.php.
+     */
+    public static function lastScheduledAt(): ?string
+    {
+        $value = Database::value(
+            'SELECT MAX(created_at) FROM scan_runs WHERE type = \'scheduled\''
+        );
+        return $value === null || $value === false ? null : (string) $value;
+    }
+
     public static function unfinished(): array
     {
         return Database::all(

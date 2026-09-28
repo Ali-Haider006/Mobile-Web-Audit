@@ -92,6 +92,28 @@ $runIds = array_map(static fn (array $run): int => (int) $run['id'], Runs::unfin
 if ($runIds !== []) {
     echo 'resuming ' . count($runIds) . " unfinished run(s)\n";
 } else {
+    /*
+     * This endpoint is meant to be polled far more often than the audit
+     * schedule, because the extra calls are what finish a long queue. So it,
+     * not the scheduler, decides when a new sweep is due - otherwise hourly
+     * polling would audit everything hourly and comment on every open ClickUp
+     * task just as often. ?force=1 overrides it for a manual run.
+     */
+    $interval = max(1, (int) Settings::get('audit_interval_hours', 84));
+    $last     = Runs::lastScheduledAt();
+    $forced   = isset($_GET['force']) && $_GET['force'] !== '0';
+
+    if ($last !== null && !$forced) {
+        $elapsed = (time() - strtotime($last . ' UTC')) / 3600;
+        if ($elapsed < $interval) {
+            $due = gmdate('Y-m-d H:i', strtotime($last . ' UTC') + $interval * 3600);
+            echo 'Last sweep was ' . round($elapsed, 1) . 'h ago; they run every ' . $interval . "h.\n";
+            echo 'Next one is due ' . $due . " UTC. Nothing to do.\n";
+            echo "Add &force=1 to run one now anyway.\n";
+            exit(0);
+        }
+    }
+
     $pages = Pages::monitored();
     if ($pages === []) {
         exit("Nothing to audit.\n");

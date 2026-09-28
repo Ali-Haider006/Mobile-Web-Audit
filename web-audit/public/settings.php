@@ -20,6 +20,9 @@ if (wva_is_post()) {
         Settings::set('score_threshold', (string) $threshold);
         Settings::set('flap_band', (string) max(0, min(20, (int) wva_str('flap_band', '3'))));
         Settings::set('error_alert_streak', (string) max(1, min(10, (int) wva_str('error_alert_streak', '3'))));
+        // 1 hour to 30 days. Only cron.php reads it - a real cron job's own
+        // schedule decides when bin/monitor.php runs.
+        Settings::set('audit_interval_hours', (string) max(1, min(720, (int) wva_str('audit_interval_hours', '84'))));
         Settings::set('clickup_close_on_recovery', wva_str('clickup_close_on_recovery') !== '' ? '1' : '0');
         Helpers::flash('Settings saved.', 'ok');
         Helpers::redirect('settings.php');
@@ -107,6 +110,13 @@ require WVA_ROOT . '/src/views/header.php';
                 <label for="score_threshold">Pass mark — a page below this opens a task</label>
                 <input type="number" id="score_threshold" name="score_threshold" min="1" max="100"
                        value="<?= Settings::threshold() ?>">
+            </div>
+            <div class="field">
+                <label for="audit_interval_hours">Hours between scheduled sweeps</label>
+                <input type="number" id="audit_interval_hours" name="audit_interval_hours" min="1" max="720"
+                       value="<?= (int) Settings::get('audit_interval_hours', 84) ?>">
+                <div class="small muted">84 = twice a week. Used by the cron.php URL, which is safe to
+                    call far more often than this — extra calls only finish an unfinished queue.</div>
             </div>
             <div class="field">
                 <label>PageSpeed Insights API key</label>

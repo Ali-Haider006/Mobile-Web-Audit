@@ -299,6 +299,17 @@ check('it works to a time budget', str_contains($cron, '$budget'), true);
 check('and resumes what it could not finish', str_contains($cron, 'Runs::unfinished()'), true);
 check('cron_key ships empty', (string) (require WVA_ROOT . '/config/config.php')['cron_key'], '');
 
+/*
+ * cron.php is meant to be polled far more often than the audit schedule, so
+ * it has to decide when a sweep is actually due. Without that, hourly polling
+ * audits everything hourly and comments on every open ClickUp task just as
+ * often.
+ */
+check('it gates a new sweep on an interval', str_contains($cron, 'audit_interval_hours'), true);
+check('measured from the last scheduled run', str_contains($cron, 'Runs::lastScheduledAt()'), true);
+check('with a manual override', str_contains($cron, "\$_GET['force']"), true);
+check('twice a week by default', (int) (require WVA_ROOT . '/config/config.php')['audit_interval_hours'], 84);
+
 echo "Deployment package\n";
 $zipPath = WVA_ROOT . '/dist/mobile-web-audit-flat.zip';
 @unlink($zipPath);

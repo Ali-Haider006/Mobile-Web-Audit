@@ -165,12 +165,21 @@ Without `cron_key` the endpoint answers 404, and so does a wrong key — the two
 are indistinguishable from outside, so nobody can probe for it. Treat the URL
 as a password, because it is one.
 
+Schedule it **hourly**, whatever audit frequency you want. Two things make that
+the right answer rather than a reckless one:
+
 A web request has a time limit a shell does not, so `cron.php` works to a
-budget: it audits what fits, leaves the rest queued, and continues on the next
-call. Scheduling it **hourly** is a good default even for a twice-weekly audit —
-the extra calls finish a long list and then cost nothing, since a call with
-nothing queued does no work. Visiting the URL in a browser runs it immediately,
-which is the easiest way to test it.
+budget — it audits what fits, leaves the rest queued, and continues on the next
+call. Frequent calls are what finish a long list.
+
+And `cron.php`, not the scheduler, decides when a *new* sweep is due. It checks
+how long ago the last one started against **Hours between scheduled sweeps** in
+Settings (default 84 = twice a week) and does nothing if it is not time yet. So
+hourly polling gives twice-weekly audits, not hourly ones — which matters,
+because an hourly sweep would also comment on every open ClickUp task hourly.
+
+Visiting the URL in a browser runs it immediately and prints what it did. Add
+`&force=1` to sweep now regardless of the interval; the key is still required.
 
 ### 7. Before you send the link round
 
