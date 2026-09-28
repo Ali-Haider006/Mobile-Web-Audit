@@ -103,6 +103,19 @@ h3 {
     margin: 0 0 10px;
     text-wrap: balance;
 }
+/* Sub-heading inside a card - one step down from h3, for the two routes on
+   the Scheduling card. */
+h4 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: .95rem;
+    margin: 0 0 8px;
+    color: var(--ink-soft);
+}
+h4 + p { margin-bottom: 8px; }
+.card h4 + .details, .card h4 + p + .details { margin-top: 0; }
+h4.spaced { margin-top: 18px; }
+.spaced-top { margin-top: 14px; }
 p { margin: 0 0 15px; max-width: var(--measure); }
 
 .sub {

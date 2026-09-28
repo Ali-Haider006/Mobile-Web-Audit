@@ -88,6 +88,10 @@ $clickUpDefault  = (string) Settings::get('clickup_default_list_id', '');
 $clickUpCachedAt = (string) Settings::get('clickup_list_cache_at', '');
 $clickUpMembers  = Wva\ClickUp::cachedMembers();
 $secretsFile     = is_readable(WVA_ROOT . '/config/local.php') ? 'config/local.php' : '.env';
+// Whether the URL trigger is switched on - never the key itself, which stays
+// out of the page even behind the login.
+$cronKey         = trim((string) Config::get('cron_key', ''));
+$appUrl          = rtrim((string) Settings::get('app_url', ''), '/');
 
 $title  = 'Settings';
 $active = 'settings';
@@ -240,12 +244,31 @@ require WVA_ROOT . '/src/views/header.php';
 
 <div class="card">
     <h3>Scheduling</h3>
-    <p class="small">Run the worker from cron so scans finish without a browser tab open:</p>
+    <p class="sub">Two ways to run audits unattended. Use whichever your hosting allows — you only need one.</p>
+
+    <h4>A · A URL, if you have no shell or control panel</h4>
+    <?php if ($cronKey === ''): ?>
+        <p class="small">Add <code>'cron_key' =&gt; 'a-long-random-string'</code> to
+           <?= Helpers::h($secretsFile) ?>, then any scheduler (cron-job.org and similar are free)
+           can drive the audits by fetching a URL. Until it is set, that page answers 404.</p>
+    <?php else: ?>
+        <p class="small">Point a scheduler at this, <strong>hourly</strong>:</p>
+        <pre class="details"><?= Helpers::h($appUrl !== '' ? $appUrl : 'https://your-site') ?>/cron.php?key=<em>your cron_key</em></pre>
+        <p class="small muted">Hourly is right even for a twice-weekly audit. This page decides when a
+           sweep is actually due — every <strong><?= (int) Settings::get('audit_interval_hours', 84) ?> hours</strong>,
+           set above — and the spare calls only finish a sweep that ran out of time.
+           Add <code>&amp;force=1</code> to run one now regardless.</p>
+    <?php endif; ?>
+
+    <h4 class="spaced">B · A cron job, if you have cPanel or SSH</h4>
     <pre class="details"># audit every monitored URL twice a week and act on the results
-0 6 * * 1 php <?= Helpers::h(WVA_ROOT) ?>/bin/monitor.php --quiet
-0 6 * * 4 php <?= Helpers::h(WVA_ROOT) ?>/bin/monitor.php --quiet</pre>
-    <p class="small muted">One command does the lot: audits, opens or comments on ClickUp tasks, and notes
-        recoveries. Add <code>--dry-run</code> to see what it would audit without spending API calls.</p>
+0 6 * * 1,4 php <?= Helpers::h(WVA_ROOT) ?>/bin/monitor.php --quiet</pre>
+    <p class="small muted">Here the cron schedule is the schedule — the interval above does not apply,
+        and this command has no time limit, so it finishes the whole list in one go.
+        Add <code>--dry-run</code> to see what it would audit without spending API calls.</p>
+
+    <p class="small muted spaced-top">Either way, one command does the lot: audits, opens or
+        comments on ClickUp tasks, and notes recoveries.</p>
 </div>
 
 <div class="card">
