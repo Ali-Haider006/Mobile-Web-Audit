@@ -310,6 +310,22 @@ check('measured from the last scheduled run', str_contains($cron, 'Runs::lastSch
 check('with a manual override', str_contains($cron, "\$_GET['force']"), true);
 check('twice a week by default', (int) (require WVA_ROOT . '/config/config.php')['audit_interval_hours'], 84);
 
+/*
+ * The budget is checked before an audit starts, so it has to reserve room for
+ * one to finish. Without that, an audit begun just under the line runs past
+ * max_execution_time and is killed mid-flight - leaving its queue item claimed
+ * until the stale sweep 15 minutes later, which is what the budget exists to
+ * prevent. With http_timeout at 120 the overrun is two minutes.
+ */
+check('a full audit is reserved before starting one', str_contains($cron, '$reserve'), true);
+check('sized from http_timeout', str_contains($cron, "Config::get('http_timeout'"), true);
+check('and capped like PageSpeed caps it', str_contains($cron, '$limit - 12'), true);
+check(
+    'the first audit of a call always starts',
+    str_contains($cron, '$done > 0 && microtime(true) - $started + $reserve > $budget'),
+    true
+);
+
 echo "Deployment package\n";
 $zipPath = WVA_ROOT . '/dist/mobile-web-audit-flat.zip';
 @unlink($zipPath);

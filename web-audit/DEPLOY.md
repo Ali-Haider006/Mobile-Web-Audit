@@ -181,6 +181,14 @@ because an hourly sweep would also comment on every open ClickUp task hourly.
 Visiting the URL in a browser runs it immediately and prints what it did. Add
 `&force=1` to sweep now regardless of the interval; the key is still required.
 
+How many URLs finish per call depends on the host. A request cannot outlive
+`max_execution_time`, and one audit can take up to `http_timeout`, so the page
+only starts an audit it has room to finish — it prints the budget and the
+reserve it is working to. On a host that allows 300s with `http_timeout` at
+120, expect roughly four or five typical pages per call; on a 60s host, one.
+Either way the rest stays queued and the next call continues, which is the
+other reason to poll hourly.
+
 ### 7. Before you send the link round
 
 - Load the site over **https**. If the panel offers a free Let's Encrypt

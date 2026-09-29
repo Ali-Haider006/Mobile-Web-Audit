@@ -72,6 +72,20 @@ if (function_exists('set_time_limit')) {
 $limit  = (int) ini_get('max_execution_time');
 $budget = $limit > 0 ? max(20, $limit - 25) : 240;
 
+/*
+ * How long one audit may take before it is abandoned - http_timeout, capped
+ * the same way PageSpeed::audit caps it. The budget above is checked BEFORE
+ * an audit starts, so without reserving this much an audit begun just under
+ * the line runs well past the execution limit and is killed mid-flight: the
+ * one outcome the budget exists to avoid. With http_timeout at 120 that is
+ * two minutes of overrun.
+ */
+$perAudit = (int) Config::get('http_timeout', 120);
+if ($limit > 0) {
+    $perAudit = min($perAudit, max(10, $limit - 12));
+}
+$reserve = $perAudit + 10;          // connecting, storing, and the rules
+
 $pending = Migrations::pending();
 if ($pending !== []) {
     http_response_code(500);
@@ -79,7 +93,7 @@ if ($pending !== []) {
 }
 
 echo "Mobile Web Audit - scheduled run\n";
-echo 'budget: ' . $budget . "s\n\n";
+echo 'budget: ' . $budget . 's, reserving ' . $reserve . "s per audit\n\n";
 
 if (Settings::apiKey() === '') {
     echo "WARNING: no PageSpeed API key set - Google will rate-limit this hard.\n\n";
@@ -139,7 +153,13 @@ $exhausted = false;
 
 foreach ($runIds as $runId) {
     while (true) {
-        if (microtime(true) - $started > $budget) {
+        /*
+         * Always let the first audit of a call start, even where the reserve
+         * does not fit the budget - otherwise a host with a short limit and a
+         * generous http_timeout would return "out of time" forever without
+         * auditing anything, and the queue would never drain.
+         */
+        if ($done > 0 && microtime(true) - $started + $reserve > $budget) {
             $exhausted = true;
             break 2;
         }
@@ -169,4 +189,9 @@ echo "\n" . $done . ' audited, ' . $failed . ' failed, '
 
 if ($exhausted) {
     echo "Out of time - the rest stays queued and resumes on the next call.\n";
+    if ($reserve * 2 > $budget) {
+        echo 'Only about one URL fits per call here (' . $budget . 's budget, ' . $reserve
+            . "s reserved per audit).\n"
+            . "Raising max_execution_time, or lowering http_timeout, would fit more.\n";
+    }
 }
